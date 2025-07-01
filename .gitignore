@@ -1,0 +1,8 @@
+__pycache__
+*.png
+*.jpg
+*.mp4
+*.gif
+*.png
+*.jpeg
+.pytest_cache
