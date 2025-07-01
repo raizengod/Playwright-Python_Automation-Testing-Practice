@@ -100,14 +100,15 @@ ATP/
 │   │   └── locator_uploadFiles.py.py
 │   ├── tests/
 │   │   ├── archivos_fuentes/  # Archivos para probar upload
-│   │   ├── reporte/
-│   │   │   ├── html/          # Directorio donde se genera el informe HTML
-│   │   │   ├── video/         
-│   │   │   ├── traceview\     # Directorio donde se genera registro traceview de la prueba  
-│   │   │   └── imagen/  
-│   │   └── util/
-│   │       ├── __init__.py
-│   │       └── config.py
+│   │   └── reporte/
+│   │       ├── html/          # Directorio donde se genera el informe HTML
+│   │       ├── video/         
+│   │       ├── traceview\     # Directorio donde se genera registro traceview de la prueba  
+│   │       └── imagen/  
+│   └── util/
+│       ├── __init__.py
+│       └── config.py
+├── .gitignore
 ├── requirements.txt         # Dependencias del proyecto
 └── README.md                # Este archivo
 ```
