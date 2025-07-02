@@ -1,5 +1,7 @@
 import re
 import time
+import time
+import random
 from playwright.sync_api import Page, expect, Error , TimeoutError, sync_playwright, Response 
 from datetime import datetime
 import os
@@ -421,7 +423,7 @@ class Funciones_Globales:
             selector.check() 
             print(f"\n✅ Checkbox '{selector}' marcado exitosamente (o ya lo estaba).")
 
-            # 3. Verificar que el checkbox está marcado después de la acción
+            # Verificar que el checkbox está marcado después de la acción
             expect(selector).to_be_checked()
             print(f"\n✅ Checkbox '{selector}' verificado como marcado.")
             self.tomar_captura(f"{nombre_base}_despues_de_marcar_exito", directorio)
@@ -1060,7 +1062,7 @@ class Funciones_Globales:
             raise
             return False
         
-    #30- Función para Extrae y retorna el valor de un elemento dado su selector.
+    #30- Función para extrae y retorna el valor de un elemento dado su selector.
     def obtener_valor_elemento(self, selector, nombre_base, directorio, tiempo= 0.5) -> str | None:
         print(f"\nExtrayendo valor del elemento '{selector}'")
         try:
@@ -1107,3 +1109,602 @@ class Funciones_Globales:
             # o retornar None para indicar que la operación falló.
             # raise # Descomentar para relanzar la excepción
             return None
+    
+    #31- Función para verificar que los encabezados de las columnas de una tabla sean correctos y estén presentes.
+    def verificar_encabezados_tabla(self, selector, encabezados_esperados: list[str], nombre_base, directorio, tiempo= 1) -> bool:
+        print(f"\nVerificando encabezados de la tabla con selector '{selector}'...")
+
+        try:
+            # 1. Verificar la presencia de la tabla misma
+            table_locator = selector
+            # Esperar a que la tabla esté visible. Esto es crucial para evitar errores prematuros.
+            #expect(table_locator).to_be_visible(timeout=5000) # Ajusta el timeout según necesidad
+
+            # 2. Verificar la presencia del elemento thead dentro de la tabla
+            # Usamos .locator().count() en vez de .to_have_count(0) para poder manejar el caso de no existencia
+            # sin lanzar un error de expect, ya que queremos manejarlo explícitamente.
+            thead_locator = table_locator.locator("thead") # Correcto: encadenamiento de Locators
+            num_theads_actuales = thead_locator.count()
+
+            if num_theads_actuales == 0:
+                print(f"\n❌ --> FALLO: La tabla con selector '{selector}' no contiene un elemento '<thead>' (cabecera).")
+                self.tomar_captura(f"{nombre_base}_no_thead_encontrado", directorio)
+                return False
+
+            # Si llegamos aquí, significa que thead existe. Ahora buscamos los th dentro de él.
+            encabezados_actuales_locators = thead_locator.locator("th")
+            encabezados_actuales_locators.highlight() # Resaltar la fila encontrada   
+            num_encabezados_actuales = encabezados_actuales_locators.count()
+            num_encabezados_esperados = len(encabezados_esperados)
+
+            if num_encabezados_actuales == 0:
+                # Este caso cubre que el thead existe, pero está vacío de th, o que los th no se encontraron
+                # dentro del thead. Es una advertencia, pero se convierte en fallo si no coincide con los esperados.
+                print(f"\n⚠️  --> ADVERTENCIA: Se encontró el '<thead>', pero no se encontraron elementos '<th>' dentro con el selector '{selector} thead th'.")
+                self.tomar_captura(f"{nombre_base}_no_encabezados_th_encontrados", directorio)
+                if num_encabezados_esperados > 0: # Si se esperaban encabezados pero no se encontraron th
+                    print(f"\n❌ --> FALLO: Se esperaban {num_encabezados_esperados} encabezados, pero no se encontraron '<th>' dentro de la cabecera.")
+                    return False
+                else: # Si no se esperaban encabezados (lista vacía) y no hay th, entonces es un éxito.
+                    print("\n✅ ÉXITO: No se esperaban encabezados y no se encontraron '<th>' dentro de la cabecera.")
+                    self.tomar_captura(f"{nombre_base}_no_encabezados_esperados_y_no_th", directorio)
+                    return True
+
+
+            if num_encabezados_actuales != num_encabezados_esperados:
+                print(f"\n❌ --> FALLO: El número de encabezados '<th>' encontrados ({num_encabezados_actuales}) "
+                      f"no coincide con el número de encabezados esperados ({num_encabezados_esperados}).")
+                self.tomar_captura(f"{nombre_base}_cantidad_encabezados_incorrecta", directorio)
+                return False
+
+            todos_correctos = True
+            for i in range(num_encabezados_esperados):
+                encabezado_locator = encabezados_actuales_locators.nth(i)
+                # Usamos all_text_contents() si quieremos comparar sin espacios/newlines y en orden
+                # O text_content().strip() si es uno a uno como lo tienes.
+                texto_encabezado_actual = encabezado_locator.text_content().strip()
+                encabezado_esperado = encabezados_esperados[i]
+
+                if texto_encabezado_actual == encabezado_esperado:
+                    print(f"\n  ✅ Encabezado {i+1}: '{texto_encabezado_actual}' coincide con el esperado '{encabezado_esperado}'.")
+                    # encabezado_locator.highlight() # Opcional: resaltar el encabezado
+                    time.sleep(tiempo) # Pausa para ver el resaltado
+                else:
+                    print(f"\n  ❌ FALLO: Encabezado {i+1} esperado era '{encabezado_esperado}', pero se encontró '{texto_encabezado_actual}'.")
+                    encabezado_locator.highlight()
+                    self.tomar_captura(f"{nombre_base}_encabezado_incorrecto_{i+1}", directorio)
+                    todos_correctos = False
+                    time.sleep(tiempo) # Pausa para ver el resaltado
+
+            if todos_correctos:
+                print("\n✅ ÉXITO: Todos los encabezados de columna son correctos y están en el orden esperado.")
+                self.tomar_captura(f"{nombre_base}_encabezados_verificados_ok", directorio)
+            else:
+                print("\n❌ FALLO: Uno o más encabezados de columna son incorrectos o no están en el orden esperado.")
+                self.tomar_captura(f"{nombre_base}_encabezados_verificados_fallo", directorio)
+
+            return todos_correctos
+
+        except TimeoutError as e:
+            error_msg = (
+                f"\n❌ FALLO (Timeout): No se pudo encontrar la tabla o sus encabezados con el selector '{selector}'.\n"
+                f"Posiblemente la tabla no estuvo disponible a tiempo.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_verificar_encabezados_timeout", directorio)
+            return False
+
+        except Error as e: # Catch Playwright-specific errors
+            error_msg = (
+                f"\n❌ FALLO (Playwright): Error de Playwright al intentar verificar la tabla o sus encabezados con el selector '{selector}'.\n"
+                f"Posibles causas: Selector inválido, problemas de interacción con el DOM.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_verificar_encabezados_error_playwright", directorio)
+            raise # Relanzar por ser un error de Playwright que podría indicar un problema mayor.
+
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado): Ocurrió un error inesperado al verificar los encabezados de la tabla con el selector '{selector}'.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_verificar_encabezados_error_inesperado", directorio)
+            raise # Relanzar por ser un error inesperado.
+        
+    #32- Función para verificar los datos de las filas de una tabla
+    def verificar_datos_filas_tabla(self, selector, datos_filas_esperados: list[dict], nombre_base, directorio, tiempo= 1) -> bool:
+        print(f"\nVerificando datos de las filas de la tabla con locator '{selector}'...")
+
+        try:
+            # Asegurarse de que la tabla está visible y disponible
+            expect(selector).to_be_visible(timeout=10000) # Ajusta el timeout si es necesario
+
+            # Obtener los encabezados para mapear los índices de las columnas
+            # Esto es crucial para la robustez, ya que el orden de las columnas puede cambiar.
+            header_locators = selector.locator("thead th")
+            headers = [h.text_content().strip() for h in header_locators.all()]
+            
+            if not headers:
+                print(f"\n❌ --> FALLO: No se encontraron encabezados en la tabla con locator '{selector}'. No se pueden verificar los datos de las filas.")
+                self.tomar_captura(f"{nombre_base}_no_headers_para_datos_filas", directorio)
+                return False
+
+            # Obtener todas las filas del cuerpo de la tabla (excluyendo thead)
+            row_locators = selector.locator("tbody tr")
+            num_filas_actuales = row_locators.count()
+            num_filas_esperadas = len(datos_filas_esperados)
+
+            if num_filas_actuales == 0 and num_filas_esperadas == 0:
+                print("\n✅ ÉXITO: No se esperaban filas y no se encontraron filas en la tabla.")
+                self.tomar_captura(f"{nombre_base}_no_rows_expected_and_found", directorio)
+                return True
+            
+            if num_filas_actuales != num_filas_esperadas:
+                print(f"\n❌ --> FALLO: El número de filas encontradas ({num_filas_actuales}) "
+                      f"no coincide con el número de filas esperadas ({num_filas_esperadas}).")
+                self.tomar_captura(f"{nombre_base}_cantidad_filas_incorrecta", directorio)
+                return False
+
+            todos_los_datos_correctos = True
+
+            for i in range(num_filas_esperadas):
+                fila_actual_locator = row_locators.nth(i)
+                datos_fila_esperada = datos_filas_esperados[i]
+                print(f"\n  Verificando Fila {i+1}...")
+
+                for col_name, expected_value in datos_fila_esperada.items():
+                    try:
+                        # Encontrar el índice de la columna por su nombre
+                        if col_name not in headers:
+                            print(f"\n  ❌ FALLO: Columna '{col_name}' esperada no encontrada en los encabezados de la tabla. Encabezados actuales: {headers}")
+                            self.tomar_captura(f"{nombre_base}_columna_no_encontrada", directorio)
+                            todos_los_datos_correctos = False
+                            continue # Pasa a la siguiente columna esperada o fila
+
+                        col_index = headers.index(col_name)
+                        
+                        # Localizar la celda específica (td) dentro de la fila por su índice
+                        celda_locator = fila_actual_locator.locator("td").nth(col_index)
+                        
+                        if col_name == "Select": # Lógica específica para el checkbox
+                            checkbox_locator = celda_locator.locator("input[type='checkbox']")
+                            if checkbox_locator.count() == 0:
+                                print(f"\n  ❌ FALLO: Checkbox no encontrado en la columna '{col_name}' de la Fila {i+1}.")
+                                checkbox_locator.highlight()
+                                self.tomar_captura(f"{nombre_base}_fila_{i+1}_no_checkbox", directorio)
+                                todos_los_datos_correctos = False
+                            elif isinstance(expected_value, bool): # Si se espera un estado específico (True/False)
+                                if checkbox_locator.is_checked() != expected_value:
+                                    print(f"\n  ❌ FALLO: El checkbox de la Fila {i+1}, Columna '{col_name}' estaba "
+                                          f"{'marcado' if checkbox_locator.is_checked() else 'desmarcado'}, se esperaba {'marcado' if expected_value else 'desmarcado'}.")
+                                    checkbox_locator.highlight()
+                                    self.tomar_captura(f"{nombre_base}_fila_{i+1}_checkbox_estado_incorrecto", directorio)
+                                    todos_los_datos_correctos = False
+                                else:
+                                    print(f"  ✅ Fila {i+1}, Columna '{col_name}': Checkbox presente y estado correcto ({'marcado' if expected_value else 'desmarcado'}).")
+                            else: # Si solo se espera que el checkbox exista
+                                print(f"  ✅ Fila {i+1}, Columna '{col_name}': Checkbox presente.")
+                        else: # Para otras columnas de texto
+                            actual_value = celda_locator.text_content().strip()
+                            if actual_value != str(expected_value).strip():
+                                print(f"\n  ❌ FALLO: Fila {i+1}, Columna '{col_name}'. Se esperaba '{expected_value}', se encontró '{actual_value}'.")
+                                celda_locator.highlight()
+                                self.tomar_captura(f"{nombre_base}_fila_{i+1}_col_{col_name}_incorrecta", directorio)
+                                todos_los_datos_correctos = False
+                            else:
+                                print(f"  ✅ Fila {i+1}, Columna '{col_name}': '{actual_value}' coincide con lo esperado.")
+                    
+                    except Exception as col_e:
+                        print(f"\n  ❌ ERROR INESPERADO al verificar la columna '{col_name}' de la Fila {i+1}: {col_e}")
+                        self.tomar_captura(f"{nombre_base}_error_columna_inesperado", directorio)
+                        todos_los_datos_correctos = False
+                        # Podrías decidir si quieres continuar con el resto de las columnas/filas
+                        # o si este error debe detener la verificación.
+
+                if not todos_los_datos_correctos:
+                    time.sleep(tiempo) # Pausa para ver el resaltado o el error antes de continuar con la siguiente fila (si aplica)
+
+            if todos_los_datos_correctos:
+                print("\n✅ ÉXITO: Todos los datos de las filas y checkboxes son correctos y están presentes.")
+                self.tomar_captura(f"{nombre_base}_datos_filas_verificados_ok", directorio)
+            else:
+                print("\n❌ FALLO: Uno o más datos de las filas o checkboxes son incorrectos o faltan.")
+                self.tomar_captura(f"{nombre_base}_datos_filas_verificados_fallo", directorio)
+
+            return todos_los_datos_correctos
+
+        except TimeoutError as e:
+            error_msg = (
+                f"\n❌ FALLO (Timeout): No se pudo encontrar la tabla o sus filas con el locator '{selector}'.\n"
+                f"Posiblemente la tabla no estuvo disponible a tiempo.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_verificar_datos_filas_timeout", directorio)
+            return False
+
+        except Error as e: # Captura errores específicos de Playwright
+            error_msg = (
+                f"\n❌ FALLO (Playwright): Error de Playwright al intentar verificar las filas con el locator '{selector}'.\n"
+                f"Posibles causas: Locator inválido, problemas de interacción con el DOM.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_verificar_datos_filas_error_playwright", directorio)
+            raise # Relanza por ser un error de Playwright que podría indicar un problema mayor.
+
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado): Ocurrió un error inesperado al verificar los datos de las filas con el locator '{selector}'.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_verificar_datos_filas_error_inesperado", directorio)
+            raise # Relanza por ser un error inesperado.
+        
+     # ---
+    
+    #34- Función para seleccionar y verificar el estado de checkboxes de filas aleatorias.
+    def seleccionar_y_verificar_checkboxes_aleatorios(self, selector_tabla, num_checkboxes_a_interactuar: int, nombre_base, directorio, tiempo: int = 1) -> bool:
+        print(f"\nIniciando selección y verificación de {num_checkboxes_a_interactuar} checkbox(es) aleatorio(s) en la tabla con locator '{selector_tabla}'...")
+        self.tomar_captura(f"{nombre_base}_inicio_seleccion_checkbox", directorio)
+
+        try:
+            # Asegurarse de que la tabla está visible
+            expect(selector_tabla).to_be_visible(timeout=10000)
+            
+            # Obtener todos los locators de los checkboxes en las celdas de la tabla
+            all_checkbox_locators = selector_tabla.locator("tbody tr td input[type='checkbox']")
+            
+            num_checkboxes_disponibles = all_checkbox_locators.count()
+
+            if num_checkboxes_disponibles == 0:
+                print(f"\n❌ --> FALLO: No se encontraron checkboxes en la tabla con locator '{selector_tabla.locator('tbody tr td input[type=\"checkbox\"]')}'.")
+                self.tomar_captura(f"{nombre_base}_no_checkboxes_encontrados", directorio)
+                return False
+            
+            if num_checkboxes_a_interactuar <= 0:
+                print("\n⚠️  ADVERTENCIA: El número de checkboxes a interactuar es 0 o negativo. No se realizará ninguna acción.")
+                return True # Consideramos éxito si no hay nada que hacer
+
+            if num_checkboxes_a_interactuar > num_checkboxes_disponibles:
+                print(f"\n❌ --> FALLO: Se solicitaron {num_checkboxes_a_interactuar} checkboxes, pero solo hay {num_checkboxes_disponibles} disponibles.")
+                self.tomar_captura(f"{nombre_base}_no_suficientes_checkboxes", directorio)
+                return False
+
+            print(f"\nSe encontraron {num_checkboxes_disponibles} checkboxes. Seleccionando {num_checkboxes_a_interactuar} aleatoriamente...")
+
+            # Seleccionar N índices de checkboxes aleatorios y únicos
+            random_indices = random.sample(range(num_checkboxes_disponibles), num_checkboxes_a_interactuar)
+            
+            todos_correctos = True
+
+            for i, idx in enumerate(random_indices):
+                checkbox_to_interact = all_checkbox_locators.nth(idx)
+                
+                # Resaltar el checkbox actual para la captura/visualización
+                checkbox_to_interact.highlight()
+                self.tomar_captura(f"{nombre_base}_checkbox_{i+1}_seleccionado_idx_{idx}", directorio)
+                time.sleep(tiempo)
+
+                # Obtener el ID del producto asociado a esta fila (asumiendo ID en la primera columna)
+                try:
+                    row_locator = selector_tabla.locator("tbody tr").nth(idx)
+                    product_id = row_locator.locator("td").nth(0).text_content().strip()
+                except Exception:
+                    product_id = "Desconocido"
+                
+                initial_state = checkbox_to_interact.is_checked()
+                print(f"\n  Checkbox del Producto ID: {product_id} (Fila: {idx+1}): Estado inicial {'MARCADO' if initial_state else 'DESMARCADO'}.")
+
+                # --- Lógica para asegurar que el click lo deje en estado 'seleccionado' ---
+                if initial_state: # Si ya está marcado, lo desmarcamos primero con un clic
+                    print(f"\n  El checkbox del Producto ID: {product_id} ya está MARCADO. Haciendo clic para desmarcar antes de seleccionar.")
+                    checkbox_to_interact.uncheck()
+                    time.sleep(0.5) # Pausa para que el DOM se actualice
+                    if checkbox_to_interact.is_checked():
+                        print(f"\n  ❌ FALLO: El checkbox del Producto ID: {product_id} no se desmarcó correctamente para la interacción.")
+                        checkbox_to_interact.highlight()
+                        self.tomar_captura(f"{nombre_base}_fila_{idx+1}_no_se_desmarco", directorio)
+                        todos_correctos = False
+                        continue # Pasa al siguiente checkbox aleatorio
+                
+                # Ahora el checkbox debería estar DESMARCADO (o siempre lo estuvo)
+                print(f"\n  Haciendo clic en el checkbox del Producto ID: {product_id} para MARCARLO...")
+                checkbox_to_interact.check()
+                time.sleep(0.5) # Pausa para que el DOM se actualice
+
+                final_state = checkbox_to_interact.is_checked()
+                if not final_state: # Si no está marcado (seleccionado) después del clic
+                    print(f"\n  ❌ FALLO: El checkbox del Producto ID: {product_id} no cambió a MARCADO después del clic. Sigue DESMARCADO.")
+                    checkbox_to_interact.highlight()
+                    self.tomar_captura(f"{nombre_base}_fila_{idx+1}_no_se_marco", directorio)
+                    todos_correctos = False
+                else:
+                    print(f"\n  ✅ ÉXITO: El checkbox del Producto ID: {product_id} ahora está MARCADO (seleccionado).")
+                    self.tomar_captura(f"{nombre_base}_fila_{idx+1}_marcado_ok", directorio)
+                
+                if not todos_correctos: # Si hubo un fallo en este checkbox, pausa antes del siguiente
+                    time.sleep(tiempo)
+
+            if todos_correctos:
+                print(f"\n✅ ÉXITO: Todos los {num_checkboxes_a_interactuar} checkbox(es) aleatorio(s) fueron seleccionados y verificados correctamente.")
+                self.tomar_captura(f"{nombre_base}_todos_seleccionados_ok", directorio)
+            else:
+                print(f"\n❌ FALLO: Uno o más checkbox(es) aleatorio(s) no pudieron ser seleccionados o verificados.")
+                self.tomar_captura(f"{nombre_base}_fallo_general_seleccion", directorio)
+
+            return todos_correctos
+
+        except TimeoutError as e:
+            error_msg = (
+                f"\n❌ FALLO (Timeout): No se pudo encontrar la tabla o los checkboxes con el locator '{selector_tabla}'.\n"
+                f"Posiblemente los elementos no estuvieron disponibles a tiempo.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_seleccion_checkbox_timeout", directorio)
+            return False
+
+        except Error as e:
+            error_msg = (
+                f"\n❌ FALLO (Playwright): Error de Playwright al seleccionar y verificar checkboxes en la tabla '{selector_tabla}'.\n"
+                f"Posibles causas: Locator inválido, problemas de interacción con el DOM.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_seleccion_checkbox_error_playwright", directorio)
+            raise
+
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado): Ocurrió un error inesperado al seleccionar y verificar checkboxes aleatorios.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_seleccion_checkbox_error_inesperado", directorio)
+            raise
+        
+     # ---
+    
+    #35- Función para seleccionar y verificar el estado de checkboxes de filas CONSECUTIVAS.
+    def seleccionar_y_verificar_checkboxes_consecutivos(self, selector_tabla, start_index: int, num_checkboxes_a_interactuar: int, nombre_base, directorio, tiempo= 1) -> bool:
+        print(f"\nIniciando selección y verificación de {num_checkboxes_a_interactuar} checkbox(es) consecutivo(s) "
+              f"a partir del índice {start_index} en la tabla con locator '{selector_tabla}'...")
+        self.tomar_captura(f"{nombre_base}_inicio_seleccion_consecutiva_checkbox", directorio)
+
+        try:
+            # Asegurarse de que la tabla está visible
+            expect(selector_tabla).to_be_visible(timeout=10000)
+            
+            # Obtener todos los locators de los checkboxes en las celdas de la tabla
+            all_checkbox_locators = selector_tabla.locator("tbody tr td input[type='checkbox']")
+            
+            num_checkboxes_disponibles = all_checkbox_locators.count()
+
+            if num_checkboxes_disponibles == 0:
+                print(f"\n❌ --> FALLO: No se encontraron checkboxes en la tabla con locator '{selector_tabla.locator('tbody tr td input[type=\"checkbox\"]')}'.")
+                self.tomar_captura(f"{nombre_base}_no_checkboxes_encontrados_consec", directorio)
+                return False
+            
+            if num_checkboxes_a_interactuar <= 0:
+                print("\n⚠️  ADVERTENCIA: El número de checkboxes a interactuar es 0 o negativo. No se realizará ninguna acción.")
+                return True # Consideramos éxito si no hay nada que hacer
+
+            if start_index < 0 or start_index >= num_checkboxes_disponibles:
+                print(f"\n❌ --> FALLO: El 'posición de inicio' ({start_index}) está fuera del rango válido de checkboxes disponibles (0 a {num_checkboxes_disponibles - 1}).")
+                self.tomar_captura(f"{nombre_base}_start_index_invalido_consec", directorio)
+                return False
+            
+            if (start_index + num_checkboxes_a_interactuar) > num_checkboxes_disponibles:
+                print(f"\n❌ --> FALLO: Se solicitaron {num_checkboxes_a_interactuar} checkboxes a partir del índice {start_index}, "
+                      f"pero solo hay {num_checkboxes_disponibles} disponibles. El rango excede los límites de la tabla.")
+                self.tomar_captura(f"{nombre_base}_rango_excedido_consec", directorio)
+                return False
+
+            print(f"\nInteractuando con {num_checkboxes_a_interactuar} checkbox(es) consecutivo(s) "
+                  f"desde el índice {start_index} hasta el {start_index + num_checkboxes_a_interactuar - 1}...")
+            
+            todos_correctos = True
+
+            for i in range(num_checkboxes_a_interactuar):
+                current_idx = start_index + i
+                checkbox_to_interact = all_checkbox_locators.nth(current_idx)
+                
+                # Resaltar el checkbox actual para la captura/visualización
+                checkbox_to_interact.highlight()
+                self.tomar_captura(f"{nombre_base}_checkbox_consecutivo_{i+1}_idx_{current_idx}", directorio)
+                time.sleep(tiempo)
+
+                # Obtener el ID del producto asociado a esta fila (asumiendo ID en la primera columna)
+                try:
+                    row_locator = selector_tabla.locator("tbody tr").nth(current_idx)
+                    product_id = row_locator.locator("td").nth(0).text_content().strip()
+                except Exception:
+                    product_id = "Desconocido"
+                
+                initial_state = checkbox_to_interact.is_checked()
+                print(f"  Checkbox del Producto ID: {product_id} (Fila: {current_idx+1}): Estado inicial {'MARCADO' if initial_state else 'DESMARCADO'}.")
+
+                # --- Lógica para asegurar que el click lo deje en estado 'seleccionado' ---
+                if initial_state: # Si ya está marcado, lo desmarcamos primero con un clic
+                    print(f"\n  El checkbox del Producto ID: {product_id} ya está MARCADO. Haciendo clic para desmarcar antes de seleccionar.")
+                    checkbox_to_interact.uncheck()
+                    time.sleep(0.5) # Pausa para que el DOM se actualice
+                    if checkbox_to_interact.is_checked():
+                        print(f"  ❌ FALLO: El checkbox del Producto ID: {product_id} no se desmarcó correctamente para la interacción.")
+                        checkbox_to_interact.highlight()
+                        self.tomar_captura(f"{nombre_base}_fila_{current_idx+1}_no_se_desmarco_consec", directorio)
+                        todos_correctos = False
+                        continue # Pasa al siguiente checkbox consecutivo
+                
+                # Ahora el checkbox debería estar DESMARCADO (o siempre lo estuvo)
+                print(f"  Haciendo clic en el checkbox del Producto ID: {product_id} para MARCARLO...")
+                checkbox_to_interact.check()
+                time.sleep(0.5) # Pausa para que el DOM se actualice
+
+                final_state = checkbox_to_interact.is_checked()
+                if not final_state: # Si no está marcado (seleccionado) después del clic
+                    print(f"\n  ❌ FALLO: El checkbox del Producto ID: {product_id} no cambió a MARCADO después del clic. Sigue DESMARCADO.")
+                    checkbox_to_interact.highlight()
+                    self.tomar_captura(f"{nombre_base}_fila_{current_idx+1}_no_se_marco_consec", directorio)
+                    todos_correctos = False
+                else:
+                    print(f"  ✅ ÉXITO: El checkbox del Producto ID: {product_id} ahora está MARCADO (seleccionado).")
+                    self.tomar_captura(f"{nombre_base}_fila_{current_idx+1}_marcado_ok_consec", directorio)
+                
+                if not todos_correctos: # Si hubo un fallo en este checkbox, pausa antes del siguiente
+                    time.sleep(tiempo)
+
+            if todos_correctos:
+                print(f"\n✅ ÉXITO: Todos los {num_checkboxes_a_interactuar} checkbox(es) consecutivo(s) fueron seleccionados y verificados correctamente.")
+                self.tomar_captura(f"{nombre_base}_todos_seleccionados_ok_consec", directorio)
+            else:
+                print(f"\n❌ FALLO: Uno o más checkbox(es) consecutivo(s) no pudieron ser seleccionados o verificados.")
+                self.tomar_captura(f"{nombre_base}_fallo_general_seleccion_consec", directorio)
+
+            return todos_correctos
+
+        except TimeoutError as e:
+            error_msg = (
+                f"\n❌ FALLO (Timeout): No se pudo encontrar la tabla o los checkboxes con el locator '{selector_tabla}'.\n"
+                f"Posiblemente los elementos no estuvieron disponibles a tiempo.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_seleccion_consec_checkbox_timeout", directorio)
+            return False
+
+        except Error as e:
+            error_msg = (
+                f"\n❌ FALLO (Playwright): Error de Playwright al seleccionar y verificar checkboxes consecutivos en la tabla '{selector_tabla}'.\n"
+                f"Posibles causas: Locator inválido, problemas de interacción con el DOM.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_seleccion_consec_checkbox_error_playwright", directorio)
+            raise
+
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado): Ocurrió un error inesperado al seleccionar y verificar checkboxes consecutivos.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_seleccion_consec_checkbox_error_inesperado", directorio)
+            raise
+        
+    #36- Función para deseleccionar un checkbox ya marcado y verificar su estado.
+    def deseleccionar_y_verificar_checkbox_marcado_aleatorio(self, selector_tabla, nombre_base, directorio, tiempo= 1) -> bool:
+        print(f"\nIniciando deselección y verificación de TODOS los checkboxes marcados "
+              f"en la tabla con locator '{selector_tabla}'...")
+        self.tomar_captura(f"{nombre_base}_inicio_deseleccion_todos_marcados", directorio)
+
+        try:
+            # Asegurarse de que la tabla está visible
+            expect(selector_tabla).to_be_visible(timeout=10000)
+            
+            # Obtener todos los locators de los checkboxes en las celdas de la tabla
+            all_checkbox_locators = selector_tabla.locator("tbody tr td input[type='checkbox']")
+            
+            num_checkboxes_disponibles = all_checkbox_locators.count()
+
+            if num_checkboxes_disponibles == 0:
+                print(f"\n❌ --> FALLO: No se encontraron checkboxes en la tabla con locator '{selector_tabla.locator('tbody tr td input[type=\"checkbox\"]')}'.")
+                self.tomar_captura(f"{nombre_base}_no_checkboxes_encontrados_todos", directorio)
+                return False
+            
+            # Recolectar todos los checkboxes que están actualmente marcados para deseleccionar
+            checkboxes_to_deselect = []
+            for i in range(num_checkboxes_disponibles):
+                checkbox = all_checkbox_locators.nth(i)
+                if checkbox.is_checked():
+                    checkboxes_to_deselect.append({"locator": checkbox, "original_index": i})
+            
+            if not checkboxes_to_deselect:
+                print("\n⚠️  ADVERTENCIA: No se encontró ningún checkbox actualmente MARCADO en la tabla para deseleccionar. Prueba completada sin acciones.")
+                self.tomar_captura(f"{nombre_base}_no_marcados_para_deseleccionar", directorio)
+                return True # Consideramos éxito si no hay nada que deseleccionar
+
+            print(f"Se encontraron {len(checkboxes_to_deselect)} checkbox(es) marcado(s) para deseleccionar.")
+
+            todos_deseleccionados_correctamente = True
+
+            for i, checkbox_info in enumerate(checkboxes_to_deselect):
+                checkbox_to_interact = checkbox_info["locator"]
+                original_idx = checkbox_info["original_index"]
+                
+                # Resaltar el checkbox actual
+                checkbox_to_interact.highlight()
+                self.tomar_captura(f"{nombre_base}_deseleccion_actual_{i+1}_idx_{original_idx}", directorio)
+                time.sleep(tiempo)
+
+                # Obtener el ID del producto asociado a esta fila (asumiendo ID en la primera columna)
+                try:
+                    row_locator = selector_tabla.locator("tbody tr").nth(original_idx)
+                    product_id = row_locator.locator("td").nth(0).text_content().strip()
+                except Exception:
+                    product_id = "Desconocido"
+                
+                print(f"\n  Procesando checkbox del Producto ID: {product_id} (Fila: {original_idx+1}). Estado inicial: MARCADO (esperado).")
+
+                # --- Interacción: Clic para deseleccionar ---
+                print(f"\n  Haciendo clic en el checkbox del Producto ID: {product_id} para DESMARCARLO...")
+                checkbox_to_interact.click()
+                time.sleep(0.5) # Pausa para que el DOM se actualice
+
+                final_state = checkbox_to_interact.is_checked()
+                if final_state: # Si sigue marcado después del clic
+                    print(f"\n  ❌ FALLO: El checkbox del Producto ID: {product_id} no cambió a DESMARCADO después del clic. Sigue MARCADO.")
+                    checkbox_to_interact.highlight()
+                    self.tomar_captura(f"{nombre_base}_fila_{original_idx+1}_no_desmarcado", directorio)
+                    todos_deseleccionados_correctamente = False
+                else:
+                    print(f"\n  ✅ ÉXITO: El checkbox del Producto ID: {product_id} ahora está DESMARCADO (deseleccionado).")
+                    self.tomar_captura(f"{nombre_base}_fila_{original_idx+1}_desmarcado_ok", directorio)
+                
+                if not todos_deseleccionados_correctamente:
+                    time.sleep(tiempo) # Pausa si hubo un fallo para visualización
+
+            if todos_deseleccionados_correctamente:
+                print(f"\n✅ ÉXITO: Todos los {len(checkboxes_to_deselect)} checkbox(es) marcados fueron deseleccionados y verificados correctamente.")
+                self.tomar_captura(f"{nombre_base}_todos_deseleccionados_ok", directorio)
+            else:
+                print(f"\n❌ FALLO: Uno o más checkbox(es) marcados no pudieron ser deseleccionados o verificados.")
+                self.tomar_captura(f"{nombre_base}_fallo_general_deseleccion_todos", directorio)
+
+            return todos_deseleccionados_correctamente
+
+        except TimeoutError as e:
+            error_msg = (
+                f"\n❌ FALLO (Timeout): No se pudo encontrar la tabla o los checkboxes con el locator '{selector_tabla}'.\n"
+                f"Posiblemente los elementos no estuvieron disponibles a tiempo.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_deseleccion_todos_timeout", directorio)
+            return False
+
+        except Error as e:
+            error_msg = (
+                f"\n❌ FALLO (Playwright): Error de Playwright al deseleccionar y verificar todos los checkboxes marcados en la tabla '{selector_tabla}'.\n"
+                f"Posibles causas: Locator inválido, problemas de interacción con el DOM.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_deseleccion_todos_error_playwright", directorio)
+            raise
+
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado): Ocurrió un error inesperado al deseleccionar y verificar todos los checkboxes marcados.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_deseleccion_todos_error_inesperado", directorio)
+            raise
+        
+    

@@ -12,7 +12,7 @@ Este repositorio forma parte de mi portafolio personal, mostrando mi capacidad p
 * **Lenguaje de Programación:** Desarrollado en **Python 3.13.5**.
 * **Gestión de Pruebas:** Organización de casos de prueba con **Pytest**.
 * **Generación de Informes:** Utilización de para visualización clara y detallada de los resultados de las pruebas.
-* **Cobertura Funcional:** Validación de formularios, tablas web, carga de archivos, varios tipos de localizadores de elementos
+* **Cobertura Funcional:** Validación de formularios, tablas web, interacción con checkBox individuales, varios checkBox, carga de archivos, varios tipos de localizadores de elementos
 
 ## 🛠️ Tecnologías Utilizadas
 
@@ -81,6 +81,7 @@ ATP/
 │       └── playwright.yml         # Configuración de GitHub Actions para CI
 ├── mv_ATP/
 ├── preactice/                 # Contenedor principal del código fuente
+│   ├── __init__.py
 │   ├── pages/                 # Implementación del Page Object Model (POM)
 │   │   ├── __init__.py
 │   │   └── base_page.py       # Clase base con funciones globales
@@ -88,6 +89,7 @@ ATP/
 │   │   ├── __init__.py
 │   │   ├── locator_getByRole.py
 │   │   ├── locator_barraMenu.py
+│   │   ├── locator_cheBoxLista.py
 │   │   ├── locator_get_getByAltText.py
 │   │   ├── locator_getByLabel.py
 │   │   ├── locator_getByPlaceholdr.py
@@ -100,11 +102,22 @@ ATP/
 │   │   └── locator_uploadFiles.py.py
 │   ├── tests/
 │   │   ├── archivos_fuentes/  # Archivos para probar upload
-│   │   └── reporte/
-│   │       ├── html/          # Directorio donde se genera el informe HTML
-│   │       ├── video/         
-│   │       ├── traceview\     # Directorio donde se genera registro traceview de la prueba  
-│   │       └── imagen/  
+│   │   ├── reporte/
+│   │   │   ├── html/          # Directorio donde se genera el informe HTML
+│   │   │   ├── video/         
+│   │   │   ├── traceview/     # Directorio donde se genera registro traceview de la prueba  
+│   │   │   └── imagen/  
+│   │   ├── test_cargarArchivo.py
+│   │   ├── test_checkBoxLista.py
+│   │   ├── test_getByAltText.py
+│   │   ├── test_getByLabel.py
+│   │   ├── test_getByPlaceholder.py
+│   │   ├── test_getByRole.py
+│   │   ├── test_getByTestId.py
+│   │   ├── test_getByText.py
+│   │   ├── test_getByTitle.py
+│   │   ├── test_tablaDinamica.py
+│   │   └── test_tablaEstatica.py
 │   └── util/
 │       ├── __init__.py
 │       └── config.py
