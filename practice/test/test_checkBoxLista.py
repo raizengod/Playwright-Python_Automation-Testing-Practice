@@ -69,3 +69,14 @@ def test_interactuar_con_check_consecutivos_tabla(set_up_checkBoxLista):
 
     fg.seleccionar_y_verificar_checkboxes_consecutivos(cbl.tablaCheck, indice_inicio, cantidad_a_seleccionar, "seleccionar_y_verificar_checkboxes_consecutivos_tabla_Check", config.SCREENSHOT_DIR)
     fg.deseleccionar_y_verificar_checkbox_marcado_aleatorio(cbl.tablaCheck, "deseleccionar_y_verificar_checkbox_marcado_aleatorio_tabla_check", config.SCREENSHOT_DIR)
+    
+def test_buscar_dato_y_marcar_checkBox(set_up_checkBoxLista):
+    page= set_up_checkBoxLista
+    
+    #IMPORTANTE: Creamos un objeto de tipo función 'Funciones_Globales'
+    fg= Funciones_Globales(page) #Este page va ser enviado a la función __init__ en el archivo base_page
+    #IMPORTANTE: Creamos un objeto de tipo función 'CheckBoxListaLocatorsPage'
+    cbl= CheckBoxListaLocatorsPage(page)
+    
+    fg.seleccionar_checkbox_por_contenido_celda(cbl.tablaCheck, "s", "seleccionar_checkbox_por_contenido_celda_tabla_check", config.SCREENSHOT_DIR)
+    fg.deseleccionar_y_verificar_checkbox_marcado_aleatorio(cbl.tablaCheck, "deseleccionar_y_verificar_checkbox_marcado_aleatorio_tabla_check", config.SCREENSHOT_DIR)

@@ -1706,5 +1706,118 @@ class Funciones_Globales:
             print(error_msg)
             self.tomar_captura(f"{nombre_base}_deseleccion_todos_error_inesperado", directorio)
             raise
-        
     
+    #37- Función para busca un 'texto_a_buscar' en todas las celdas de una tabla (tbody) y, si lo encuentra, intenta marcar el checkbox asociado en la misma fila..   
+    def seleccionar_checkbox_por_contenido_celda(self, selector_tabla, texto_a_buscar: str, nombre_base, directorio, case_sensitive: bool = False, timeout: int = 10000, tiempo= 0.5) -> bool:
+        print(f"\n--- Iniciando búsqueda de '{texto_a_buscar}' en la tabla {selector_tabla} para marcar checkboxes ---")
+        self.tomar_captura(f"{nombre_base}_inicio_busqueda_celdas", directorio)
+
+        try:
+            # Asegurarse de que la tabla está visible y cargada
+            expect(selector_tabla).to_be_visible(timeout=timeout)
+            print("Tabla visible. Comenzando a iterar por filas y celdas.")
+
+            # Obtener todas las filas del cuerpo de la tabla
+            filas = selector_tabla.locator("tbody tr")
+            num_filas = filas.count()
+
+            if num_filas == 0:
+                print(f"\n❌ --> FALLO: No se encontraron filas en el 'tbody' de la tabla con locator '{selector_tabla}'.")
+                self.tomar_captura(f"{nombre_base}_no_filas_encontradas", directorio)
+                return False
+
+            print(f"Se encontraron {num_filas} filas en la tabla.")
+            
+            checkboxes_marcados_exitosamente = 0
+            
+            # Normalizar el texto de búsqueda si no es sensible a mayúsculas/minúsculas
+            search_text_normalized = texto_a_buscar if case_sensitive else texto_a_buscar.lower()
+
+            for i in range(num_filas):
+                fila_actual = filas.nth(i)
+                # Obtener todas las celdas (td) de la fila actual, excluyendo posibles celdas de encabezado (th) si las hubiera en tbody
+                celdas = fila_actual.locator("td")
+                num_celdas = celdas.count()
+
+                if num_celdas == 0:
+                    print(f"ADVERTENCIA: La fila {i+1} no contiene celdas (td). Saltando.")
+                    continue
+
+                celda_encontrada = False
+                for j in range(num_celdas):
+                    celda_actual = celdas.nth(j)
+                    celda_texto = celda_actual.text_content().strip()
+                    
+                    # Normalizar el texto de la celda para la comparación
+                    celda_texto_normalized = celda_texto if case_sensitive else celda_texto.lower()
+
+                    if search_text_normalized in celda_texto_normalized:
+                        print(f"✅ Coincidencia encontrada en Fila {i+1}, Celda {j+1}: '{celda_texto}' contiene '{texto_a_buscar}'.")
+                        celda_encontrada = True
+                        
+                        # Buscar el checkbox dentro de la misma fila
+                        checkbox_locator = fila_actual.locator("input[type='checkbox']")
+                        
+                        if checkbox_locator.count() > 0:
+                            checkbox = checkbox_locator.first
+                            checkbox.highlight()
+                            self.tomar_captura(f"{nombre_base}_fila_{i+1}_coincidencia", directorio)
+                            time.sleep(tiempo)
+
+                            if not checkbox.is_checked():
+                                print(f"  --> Marcando checkbox en Fila {i+1}...")
+                                checkbox.check()
+                                time.sleep(tiempo)
+                                if checkbox.is_checked():
+                                    print(f"  ✅ Checkbox en Fila {i+1} marcado correctamente.")
+                                    checkboxes_marcados_exitosamente += 1
+                                    self.tomar_captura(f"{nombre_base}_fila_{i+1}_checkbox_marcado", directorio)
+                                else:
+                                    print(f"  ❌ FALLO: No se pudo marcar el checkbox en Fila {i+1}.")
+                                    self.tomar_captura(f"{nombre_base}_fila_{i+1}_checkbox_no_marcado", directorio)
+                            else:
+                                print(f"  ⚠️ Checkbox en Fila {i+1} ya estaba marcado. No se requiere acción.")
+                                self.tomar_captura(f"{nombre_base}_fila_{i+1}_checkbox_ya_marcado", directorio)
+                        else:
+                            print(f"  ⚠️ ADVERTENCIA: No se encontró un checkbox en la Fila {i+1} a pesar de la coincidencia.")
+                        break # Salir del bucle de celdas una vez encontrada la coincidencia en la fila
+
+                if not celda_encontrada:
+                    print(f"  No se encontró '{texto_a_buscar}' en la Fila {i+1}.")
+
+            if checkboxes_marcados_exitosamente > 0:
+                print(f"\n✅ ÉXITO: Se marcaron {checkboxes_marcados_exitosamente} checkbox(es) basados en la búsqueda de '{texto_a_buscar}'.")
+                self.tomar_captura(f"{nombre_base}_busqueda_finalizada_exito", directorio)
+                return True
+            else:
+                print(f"\n⚠️ ADVERTENCIA: No se encontraron coincidencias para '{texto_a_buscar}' o no se pudo marcar ningún checkbox.")
+                self.tomar_captura(f"{nombre_base}_busqueda_finalizada_sin_marcados", directorio)
+                return False
+
+        except TimeoutError as e:
+            error_msg = (
+                f"\n❌ FALLO (Timeout): La tabla con el locator '{selector_tabla}' no estuvo visible a tiempo (timeout de {timeout}ms).\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_timeout_tabla", directorio)
+            return False
+
+        except Error as e:
+            error_msg = (
+                f"\n❌ FALLO (Playwright): Error al interactuar con la tabla o los checkboxes.\n"
+                f"Posibles causas: Locator inválido, problemas de interacción con el DOM.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_playwright", directorio)
+            raise
+
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado): Ocurrió un error inesperado durante la búsqueda y marcado de checkboxes.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_inesperado", directorio)
+            raise
