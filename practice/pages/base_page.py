@@ -1821,3 +1821,76 @@ class Funciones_Globales:
             print(error_msg)
             self.tomar_captura(f"{nombre_base}_error_inesperado", directorio)
             raise
+        
+    #38- Función para verifica que la página inicial esperada esté seleccionada y resaltada en un componente de paginación.
+    def verificar_pagina_inicial_seleccionada(self, selector_paginado, texto_pagina_inicial: str, nombre_base, directorio, clase_resaltado: str = "active", timeout: int = 10000) -> bool:
+        print(f"\n--- Iniciando verificación del estado inicial de la paginación ---")
+        print(f"Contenedor de paginación locator: '{selector_paginado}'")
+        print(f"Página inicial esperada: '{texto_pagina_inicial}'")
+        self.tomar_captura(f"{nombre_base}_inicio_verificacion_paginacion", directorio)
+
+        try:
+            # Asegurarse de que el contenedor de paginación está visible
+            expect(selector_paginado).to_be_visible(timeout=timeout)
+            print("\nContenedor de paginación visible. Procediendo a verificar la página inicial.")
+
+            # Intentar encontrar el elemento de la página inicial por su texto dentro del contenedor
+            # Se usa text= para una coincidencia exacta del texto visible del número de página
+            # Es importante asegurarse que este selector apunte al elemento clickable de la página (ej. un <a> o <span> dentro de un <li>)
+            # Podría ser necesario ajustar el selector para ser más específico si el texto '1' aparece en otros lugares.
+            # Por ejemplo: selector_contenedor_paginacion.locator(f"li a:has-text('{texto_pagina_inicial}')")
+            pagina_inicial_locator = selector_paginado.locator(f"text='{texto_pagina_inicial}'").first
+
+            # Esperar a que el elemento de la página inicial esté visible y sea interactuable
+            expect(pagina_inicial_locator).to_be_visible(timeout=timeout)
+            print(f"\nElemento para la página '{texto_pagina_inicial}' encontrado.")
+
+            # 1. Verificar que la página inicial esperada esté seleccionada (marcada con la clase de resaltado)
+            print(f"\nVerificando si la página '{texto_pagina_inicial}' tiene la clase de resaltado '{clase_resaltado}'...")
+            pagina_inicial_locator.highlight() # Resaltar el elemento para la captura
+            self.tomar_captura(f"{nombre_base}_pagina_inicial_encontrada", directorio)
+
+            # --- CAMBIO CLAVE AQUÍ: Usar get_attribute("class") y verificar la subclase ---
+            current_classes = pagina_inicial_locator.get_attribute("class")
+            
+            if current_classes and clase_resaltado in current_classes.split():
+                print(f"\n  ✅ ÉXITO: La página '{texto_pagina_inicial}' está seleccionada y resaltada con la clase '{clase_resaltado}'.")
+                self.tomar_captura(f"{nombre_base}_pagina_inicial_seleccionada_ok", directorio)
+                return True
+            else:
+                print(f"\n  ❌ FALLO: La página '{texto_pagina_inicial}' no tiene la clase de resaltado esperada '{clase_resaltado}'.")
+                print(f"  Clases actuales del elemento: '{current_classes}'")
+                self.tomar_captura(f"{nombre_base}_pagina_inicial_no_resaltada", directorio)
+                return False
+
+        except TimeoutError as e:
+            error_msg = (
+                f"\n❌ FALLO (Timeout): El contenedor de paginación '{selector_paginado}' "
+                f"o la página inicial '{texto_pagina_inicial}' no estuvieron visibles a tiempo "
+                f"(timeout de {timeout}ms).\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_timeout_paginacion", directorio)
+            return False
+
+        except Error as e:
+            error_msg = (
+                f"\n❌ FALLO (Playwright): Error al interactuar con el componente de paginación.\n"
+                f"Posibles causas: Locator inválido, problemas de interacción con el DOM.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_playwright", directorio)
+            raise # Relanzar la excepción para que el framework de pruebas la maneje
+
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado): Ocurrió un error inesperado al verificar la paginación.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_inesperado", directorio)
+            raise # Relanzar la excepción
+        
+    #39- 
