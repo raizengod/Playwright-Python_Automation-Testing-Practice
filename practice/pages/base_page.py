@@ -1215,15 +1215,16 @@ class Funciones_Globales:
             raise # Relanzar por ser un error inesperado.
         
     #32- Función para verificar los datos de las filas de una tabla
-    def verificar_datos_filas_tabla(self, selector, datos_filas_esperados: list[dict], nombre_base, directorio, tiempo= 1) -> bool:
-        print(f"\nVerificando datos de las filas de la tabla con locator '{selector}'...")
+    def verificar_datos_filas_tabla(self, selector, datos_filas_esperados: list[dict], nombre_base, directorio, tiempo: int = 1) -> bool:
+        print(f"\n--- Iniciando verificación de datos de las filas de la tabla con locator '{selector}' ---")
+        self.tomar_captura(f"{nombre_base}_inicio_verificacion_datos_filas", directorio) # Renombrado para claridad
 
         try:
             # Asegurarse de que la tabla está visible y disponible
             expect(selector).to_be_visible(timeout=10000) # Ajusta el timeout si es necesario
+            print("Tabla visible. Procediendo a verificar los datos.")
 
             # Obtener los encabezados para mapear los índices de las columnas
-            # Esto es crucial para la robustez, ya que el orden de las columnas puede cambiar.
             header_locators = selector.locator("thead th")
             headers = [h.text_content().strip() for h in header_locators.all()]
             
@@ -1248,20 +1249,26 @@ class Funciones_Globales:
                 self.tomar_captura(f"{nombre_base}_cantidad_filas_incorrecta", directorio)
                 return False
 
-            todos_los_datos_correctos = True
+            # --- Variable principal para el retorno ---
+            todos_los_datos_correctos = True 
 
             for i in range(num_filas_esperadas):
                 fila_actual_locator = row_locators.nth(i)
                 datos_fila_esperada = datos_filas_esperados[i]
-                print(f"\n  Verificando Fila {i+1}...")
+                print(f"\n  Verificando Fila {i+1} (ID esperado: {datos_fila_esperada.get('ID', 'N/A')})...")
+                fila_actual_locator.highlight() # Resaltar la fila actual en la captura para debug.
+
+                # Bandera para saber si la fila actual tiene algún fallo
+                fila_actual_correcta = True 
 
                 for col_name, expected_value in datos_fila_esperada.items():
                     try:
                         # Encontrar el índice de la columna por su nombre
                         if col_name not in headers:
-                            print(f"\n  ❌ FALLO: Columna '{col_name}' esperada no encontrada en los encabezados de la tabla. Encabezados actuales: {headers}")
+                            print(f"\n  ❌ FALLO: Columna '{col_name}' esperada no encontrada en los encabezados de la tabla. Encabezados actuales: {headers}")
                             self.tomar_captura(f"{nombre_base}_columna_no_encontrada", directorio)
-                            todos_los_datos_correctos = False
+                            todos_los_datos_correctos = False # Falla general
+                            fila_actual_correcta = False # Falla en esta fila
                             continue # Pasa a la siguiente columna esperada o fila
 
                         col_index = headers.index(col_name)
@@ -1272,49 +1279,56 @@ class Funciones_Globales:
                         if col_name == "Select": # Lógica específica para el checkbox
                             checkbox_locator = celda_locator.locator("input[type='checkbox']")
                             if checkbox_locator.count() == 0:
-                                print(f"\n  ❌ FALLO: Checkbox no encontrado en la columna '{col_name}' de la Fila {i+1}.")
+                                print(f"\n  ❌ FALLO: Checkbox no encontrado en la columna '{col_name}' de la Fila {i+1}.")
                                 checkbox_locator.highlight()
                                 self.tomar_captura(f"{nombre_base}_fila_{i+1}_no_checkbox", directorio)
                                 todos_los_datos_correctos = False
+                                fila_actual_correcta = False
                             elif isinstance(expected_value, bool): # Si se espera un estado específico (True/False)
                                 if checkbox_locator.is_checked() != expected_value:
-                                    print(f"\n  ❌ FALLO: El checkbox de la Fila {i+1}, Columna '{col_name}' estaba "
+                                    print(f"\n  ❌ FALLO: El checkbox de la Fila {i+1}, Columna '{col_name}' estaba "
                                           f"{'marcado' if checkbox_locator.is_checked() else 'desmarcado'}, se esperaba {'marcado' if expected_value else 'desmarcado'}.")
                                     checkbox_locator.highlight()
                                     self.tomar_captura(f"{nombre_base}_fila_{i+1}_checkbox_estado_incorrecto", directorio)
                                     todos_los_datos_correctos = False
+                                    fila_actual_correcta = False
                                 else:
-                                    print(f"  ✅ Fila {i+1}, Columna '{col_name}': Checkbox presente y estado correcto ({'marcado' if expected_value else 'desmarcado'}).")
-                            else: # Si solo se espera que el checkbox exista
-                                print(f"  ✅ Fila {i+1}, Columna '{col_name}': Checkbox presente.")
+                                    print(f"  ✅ Fila {i+1}, Columna '{col_name}': Checkbox presente y estado correcto ({'marcado' if expected_value else 'desmarcado'}).")
+                            else: # Si solo se espera que el checkbox exista, pero no se especificó un estado booleano
+                                print(f"  ✅ Fila {i+1}, Columna '{col_name}': Checkbox presente (estado no verificado explícitamente).")
                         else: # Para otras columnas de texto
                             actual_value = celda_locator.text_content().strip()
-                            if actual_value != str(expected_value).strip():
-                                print(f"\n  ❌ FALLO: Fila {i+1}, Columna '{col_name}'. Se esperaba '{expected_value}', se encontró '{actual_value}'.")
+                            # Aseguramos que expected_value también sea una cadena para la comparación
+                            if actual_value != str(expected_value).strip(): 
+                                print(f"\n  ❌ FALLO: Fila {i+1}, Columna '{col_name}'. Se esperaba '{expected_value}', se encontró '{actual_value}'.")
                                 celda_locator.highlight()
                                 self.tomar_captura(f"{nombre_base}_fila_{i+1}_col_{col_name}_incorrecta", directorio)
                                 todos_los_datos_correctos = False
+                                fila_actual_correcta = False
                             else:
-                                print(f"  ✅ Fila {i+1}, Columna '{col_name}': '{actual_value}' coincide con lo esperado.")
-                    
+                                print(f"  ✅ Fila {i+1}, Columna '{col_name}': '{actual_value}' coincide con lo esperado.")
+                        
                     except Exception as col_e:
-                        print(f"\n  ❌ ERROR INESPERADO al verificar la columna '{col_name}' de la Fila {i+1}: {col_e}")
+                        print(f"\n  ❌ ERROR INESPERADO al verificar la columna '{col_name}' de la Fila {i+1}: {col_e}")
                         self.tomar_captura(f"{nombre_base}_error_columna_inesperado", directorio)
                         todos_los_datos_correctos = False
+                        fila_actual_correcta = False
                         # Podrías decidir si quieres continuar con el resto de las columnas/filas
                         # o si este error debe detener la verificación.
 
-                if not todos_los_datos_correctos:
-                    time.sleep(tiempo) # Pausa para ver el resaltado o el error antes de continuar con la siguiente fila (si aplica)
+                # Pausa solo si la fila actual tuvo algún fallo para que la captura sea más útil
+                if not fila_actual_correcta:
+                    time.sleep(tiempo) 
 
+            # --- Retorno final basado en el estado acumulado ---
             if todos_los_datos_correctos:
                 print("\n✅ ÉXITO: Todos los datos de las filas y checkboxes son correctos y están presentes.")
                 self.tomar_captura(f"{nombre_base}_datos_filas_verificados_ok", directorio)
+                return True
             else:
                 print("\n❌ FALLO: Uno o más datos de las filas o checkboxes son incorrectos o faltan.")
                 self.tomar_captura(f"{nombre_base}_datos_filas_verificados_fallo", directorio)
-
-            return todos_los_datos_correctos
+                return False
 
         except TimeoutError as e:
             error_msg = (
@@ -1344,8 +1358,6 @@ class Funciones_Globales:
             print(error_msg)
             self.tomar_captura(f"{nombre_base}_verificar_datos_filas_error_inesperado", directorio)
             raise # Relanza por ser un error inesperado.
-        
-     # ---
     
     #34- Función para seleccionar y verificar el estado de checkboxes de filas aleatorias.
     def seleccionar_y_verificar_checkboxes_aleatorios(self, selector_tabla, num_checkboxes_a_interactuar: int, nombre_base, directorio, tiempo: int = 1) -> bool:
