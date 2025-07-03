@@ -1893,4 +1893,119 @@ class Funciones_Globales:
             self.tomar_captura(f"{nombre_base}_error_inesperado", directorio)
             raise # Relanzar la excepción
         
-    #39- 
+    #39- Función para navega a un número de página específico en un componente de paginación
+    def navegar_y_verificar_pagina(self, selector_paginado, numero_pagina_a_navegar: str, nombre_base, directorio, clase_resaltado: str = "active", timeout: int = 10000, tiempo= 0.5) -> bool:
+        print(f"\n--- Iniciando navegación a la página '{numero_pagina_a_navegar}' y verificación de resaltado ---")
+        print(f"Contenedor de paginación locator: '{selector_paginado}'")
+        self.tomar_captura(f"{nombre_base}_inicio_navegacion_pagina_{numero_pagina_a_navegar}", directorio)
+
+        try:
+            # Asegurarse de que el contenedor de paginación está visible
+            expect(selector_paginado).to_be_visible(timeout=timeout)
+            print("\nContenedor de paginación visible.")
+
+            # --- 1. Obtener el número total de páginas y la página actual ---
+            # Asumimos que los elementos de paginación son 'li' dentro del contenedor y que el último 'li'
+            # visible (que no sea "Siguiente" o "Última") contiene el número de la última página.
+            # Podrías necesitar ajustar este selector si tu HTML es diferente.
+            todos_los_botones_pagina = selector_paginado.locator("li")
+            num_botones = todos_los_botones_pagina.count()
+            
+            # Este locator debería apuntar al elemento que realmente tiene la clase 'active'
+            # Basado en tu HTML/JS, la clase 'active' está en el <a>
+            pagina_actual_locator = selector_paginado.locator(f"a.{clase_resaltado}").first
+            # O si el <li> es el que está marcado, pero necesitas obtener el texto del <a> dentro
+            # pagina_actual_locator = selector_contenedor_paginacion.locator(f"li.{clase_resaltado} a").first
+            pagina_actual_texto = pagina_actual_locator.text_content().strip() if pagina_actual_locator.is_visible() else "Desconocida"
+            print(f"\nPágina actualmente seleccionada: {pagina_actual_texto}")
+
+            # Calcular el número total de páginas (puede requerir un ajuste si hay botones "Siguiente", "Anterior", etc.)
+            total_paginas = 0
+            if num_botones > 0:
+                # Filtrar elementos que son solo números o el último elemento numérico
+                for i in range(num_botones - 1, -1, -1): # Iterar al revés para encontrar el último número
+                    btn = todos_los_botones_pagina.nth(i)
+                    btn_text = btn.text_content().strip()
+                    if btn_text.isdigit(): # Si el texto es un número
+                        total_paginas = int(btn_text)
+                        break
+            
+            print(f"\nNúmero total de páginas detectadas: {total_paginas}")
+
+            # --- Condicional 1: Página a ir es mayor que el total de páginas ---
+            if total_paginas > 0 and int(numero_pagina_a_navegar) > total_paginas:
+                print(f"\n⚠️ ADVERTENCIA: La página de destino '{numero_pagina_a_navegar}' es mayor que el número total de páginas disponibles '{total_paginas}'.")
+                self.tomar_captura(f"{nombre_base}_pagina_destino_fuera_rango", directorio)
+                return False # Considerar esto como un fallo o una advertencia, dependiendo del caso de prueba.
+
+            # --- Condicional 2: La página a ir es la misma en la que ya está ubicado ---
+            if pagina_actual_texto == numero_pagina_a_navegar:
+                print(f"\n⚠️ ADVERTENCIA: Ya estás en la página '{numero_pagina_a_navegar}'. No se requiere navegación.")
+                # Opcional: Podrías verificar que siga resaltada.
+                self.tomar_captura(f"{nombre_base}_pagina_destino_actual", directorio)
+                return True # Considerar esto un éxito, ya que el estado es el esperado.
+
+            # 1. Encontrar y hacer clic en el botón de la página deseada
+            pagina_destino_locator = selector_paginado.locator(
+                f"li:has-text('{numero_pagina_a_navegar}') a" # Ajusta este selector si es necesario
+            ).first
+
+            expect(pagina_destino_locator).to_be_visible(timeout=timeout)
+            expect(pagina_destino_locator).to_be_enabled(timeout=timeout)
+            print(f"\nElemento de la página '{numero_pagina_a_navegar}' encontrado y habilitado.")
+
+            pagina_destino_locator.highlight()
+            self.tomar_captura(f"{nombre_base}_pagina_a_navegar_encontrada", directorio)
+            
+            print(f"\nHaciendo clic en la página '{numero_pagina_a_navegar}'...")
+            pagina_destino_locator.click()
+            time.sleep(tiempo) # Pausa para permitir la carga de la página y la aplicación de estilos
+            
+            self.tomar_captura(f"{nombre_base}_pagina_{numero_pagina_a_navegar}_clic", directorio)
+
+            # 2. Verificar que la página de destino se resalte
+            print(f"\nVerificando si la página '{numero_pagina_a_navegar}' tiene la clase de resaltado '{clase_resaltado}'...")
+            
+            pagina_destino_locator.highlight() # Resaltar el elemento para la captura final
+
+            current_classes = pagina_destino_locator.get_attribute("class")
+            
+            if current_classes and clase_resaltado in current_classes.split():
+                print(f"\n  ✅ ÉXITO: La página '{numero_pagina_a_navegar}' está seleccionada y resaltada con la clase '{clase_resaltado}'.")
+                self.tomar_captura(f"{nombre_base}_pagina_{numero_pagina_a_navegar}_seleccionada_ok", directorio)
+                return True
+            else:
+                print(f"\n  ❌ FALLO: La página '{numero_pagina_a_navegar}' no tiene la clase de resaltado esperada '{clase_resaltado}'.")
+                print(f"  Clases actuales del elemento: '{current_classes}'")
+                self.tomar_captura(f"{nombre_base}_pagina_{numero_pagina_a_navegar}_no_resaltada", directorio)
+                return False
+
+        except TimeoutError as e:
+            error_msg = (
+                f"\n❌ FALLO (Timeout): El contenedor de paginación '{selector_paginado}' "
+                f"o la página '{numero_pagina_a_navegar}' no estuvieron visibles/interactuables a tiempo "
+                f"(timeout de {timeout}ms).\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_timeout_navegacion", directorio)
+            return False
+
+        except Error as e:
+            error_msg = (
+                f"\n❌ FALLO (Playwright): Error al interactuar con el componente de paginación durante la navegación.\n"
+                f"Posibles causas: Locator inválido, problemas de interacción con el DOM, elemento no clickable.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_playwright", directorio)
+            raise
+
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado): Ocurrió un error inesperado al navegar y verificar la paginación.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_inesperado", directorio)
+            raise

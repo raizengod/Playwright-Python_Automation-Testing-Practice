@@ -7,5 +7,5 @@ __pycache__
 *.jpeg
 *.webm
 .pytest_cache
-traceview*
+traceview_*
 playwright_reporte*
