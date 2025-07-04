@@ -90,3 +90,13 @@ class RoleLocatorsPage:
     @property
     def mensajeAlerta(self):
         return self.page.locator("#role-locators > div > div:nth-child(3)").get_by_role("alert")
+    
+    #Selector de botón dinamico START
+    @property
+    def botonDinamicoStart(self):
+        return self.page.locator("#HTML5").get_by_role("button", name= "START")
+    
+    #Selector de botón dinamico STOP
+    @property
+    def botonDinamicoStop(self):
+        return self.page.locator("#HTML5").get_by_role("button", name= "STOP")

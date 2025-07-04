@@ -87,19 +87,19 @@ ATP/
 │   │   └── base_page.py       # Clase base con funciones globales
 │   ├── locator/            # Centralización de selectores de elementos web
 │   │   ├── __init__.py
-│   │   ├── locator_getByRole.py
+│   │   ├── locator_AlertsAndPopups.py
 │   │   ├── locator_barraMenu.py
 │   │   ├── locator_cheBoxLista.py
-│   │   ├── locator_get_getByAltText.py
+│   │   ├── locator_getByAltText.py
 │   │   ├── locator_getByLabel.py
 │   │   ├── locator_getByPlaceholdr.py
+│   │   ├── locator_getByRole.py
 │   │   ├── locator_getByTestId.py
 │   │   ├── locator_getByText.py
-│   │   ├── locator_getByTestId.py
 │   │   ├── locator_getByTitle.py
 │   │   ├── locator_tablaDinamica.py
 │   │   ├── locator_tablaEstatica.py
-│   │   └── locator_uploadFiles.py.py
+│   │   └── locator_uploadFiles.py
 │   ├── tests/
 │   │   ├── archivos_fuentes/  # Archivos para probar upload
 │   │   ├── reporte/
@@ -107,6 +107,7 @@ ATP/
 │   │   │   ├── video/         
 │   │   │   ├── traceview/     # Directorio donde se genera registro traceview de la prueba  
 │   │   │   └── imagen/  
+│   │   ├── test_alertsAndPopups.py
 │   │   ├── test_cargarArchivo.py
 │   │   ├── test_checkBoxLista.py
 │   │   ├── test_getByAltText.py

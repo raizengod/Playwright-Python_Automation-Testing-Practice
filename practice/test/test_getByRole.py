@@ -88,3 +88,14 @@ def test_sección_nacigation(set_up_ir_a):
     fg.hacer_click_en_elemento(lr.linkContactar, "hacer_click_en_elemento_link_CONTACT", config.SCREENSHOT_DIR,"Contact")
     fg.validar_elemento_visible(lr.mensajeAlerta, "validar_elemento_visible_mensaje_alerta", config.SCREENSHOT_DIR)
     fg.verificar_texto_contenido(lr.mensajeAlerta,"This is an important alert", "verificar_texto_contenido_mensaje_aletar", config.SCREENSHOT_DIR)
+    
+def test_boton_dinamico(set_up_ir_a):
+    page= set_up_ir_a
+    
+    #IMPORTANTE: Creamos un objeto de tipo función 'Funciones_Globales'
+    fg= Funciones_Globales(page) #Este page va ser enviado a la función __init__ en el archivo FuncionesPOM
+    #IMPORTANTE: Creamos un objeto de tipo función 'getByRole'
+    lr= RoleLocatorsPage(page)
+    
+    fg.hacer_click_en_elemento(lr.botonDinamicoStart,"hacer_click_en_elemento_boton_dinamico_start", config.SCREENSHOT_DIR, "START")
+    fg.hacer_click_en_elemento(lr.botonDinamicoStop,"hacer_click_en_elemento_boton_dinamico_stop", config.SCREENSHOT_DIR, "STOP")

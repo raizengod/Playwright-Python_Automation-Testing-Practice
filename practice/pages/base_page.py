@@ -2,7 +2,7 @@ import re
 import time
 import time
 import random
-from playwright.sync_api import Page, expect, Error , TimeoutError, sync_playwright, Response 
+from playwright.sync_api import Page, expect, Error , TimeoutError, sync_playwright, Response, Dialog 
 from datetime import datetime
 import os
 
@@ -11,6 +11,11 @@ class Funciones_Globales:
     #1- Creamos una función incial 'Constructor'-----ES IMPORTANTE TENER ESTE INICIADOR-----
     def __init__(self, page):
         self.page= page
+        self._alerta_detectada = False
+        self._alerta_mensaje_capturado = ""
+        self._alerta_tipo_capturado = ""
+        self._alerta_input_capturado = ""
+        self._dialog_handler_registered = False # <--- ¡Esta línea es crucial!   
         
     #2- Función para generar el nombre de archivo con marca de tiempo
     def _generar_nombre_archivo_con_timestamp(self, prefijo):
@@ -2016,6 +2021,641 @@ class Funciones_Globales:
         except Exception as e:
             error_msg = (
                 f"\n❌ FALLO (Inesperado): Ocurrió un error inesperado al navegar y verificar la paginación.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_inesperado", directorio)
+            raise
+    
+    # --- Manejadores y funciones para Alertas y Confirmaciones ---
+
+    # Handler para alertas simples (usado con page.once)
+    def _get_simple_alert_handler_for_on(self):
+        def handler(dialog: Dialog):
+            self._alerta_detectada = True
+            self._alerta_mensaje_capturado = dialog.message
+            self._alerta_tipo_capturado = dialog.type
+            print(f"\n  --> [LISTENER ON - Simple Alert] Alerta detectada: Tipo='{dialog.type}', Mensaje='{dialog.message}'")
+            dialog.accept() # Siempre acepta alertas simples
+            print("  --> [LISTENER ON - Simple Alert] Alerta ACEPTADA.")
+        return handler
+
+    # Handler para diálogos de confirmación (usado con page.once)
+    def _get_confirmation_dialog_handler_for_on(self, accion: str):
+        def handler(dialog: Dialog):
+            self._alerta_detectada = True
+            self._alerta_mensaje_capturado = dialog.message
+            self._alerta_tipo_capturado = dialog.type
+            print(f"\n  --> [LISTENER ON - Dinámico] Confirmación detectada: Tipo='{dialog.type}', Mensaje='{dialog.message}'")
+            if accion == 'accept':
+                dialog.accept()
+                print("  --> [LISTENER ON - Dinámico] Confirmación ACEPTADA.")
+            elif accion == 'dismiss':
+                dialog.dismiss()
+                print("  --> [LISTENER ON - Dinámico] Confirmación CANCELADA.")
+            else:
+                print(f"  --> [LISTENER ON - Dinámico] Acción desconocida '{accion}'. Aceptando por defecto.")
+                dialog.accept()
+        return handler    
+    
+    # Handler para diálogos de pregunta (prompt) (usado con page.once)
+    def _get_prompt_dialog_handler_for_on(self, input_text: str, accion: str):
+        def handler(dialog: Dialog):
+            self._alerta_detectada = True
+            self._alerta_mensaje_capturado = dialog.message
+            self._alerta_tipo_capturado = dialog.type
+            self._alerta_input_capturado = input_text # Guarda el texto que se intentó introducir
+            print(f"\n  --> [LISTENER ON - Prompt Dinámico] Diálogo detectado: Tipo='{dialog.type}', Mensaje='{dialog.message}'")
+
+            if accion == 'accept':
+                if dialog.type == "prompt":
+                    # --- CORRECCIÓN AQUÍ ---
+                    dialog.accept(input_text) # Pasa el texto directamente a accept()
+                    print(f"  --> [LISTENER ON - Prompt Dinámico] Texto '{input_text}' introducido y prompt ACEPTADO.")
+                else:
+                    dialog.accept() # Para otros tipos de diálogo, solo aceptar sin texto
+                    print("  --> [LISTENER ON - Prompt Dinámico] Diálogo ACEPTADO (sin texto, no es prompt).")
+            elif accion == 'dismiss':
+                dialog.dismiss()
+                print("  --> [LISTENER ON - Prompt Dinámico] Diálogo CANCELADO.")
+            else:
+                print(f"  --> [LISTENER ON - Prompt Dinámico] Acción desconocida '{accion}'. Cancelando por defecto.")
+                dialog.dismiss() # Por seguridad, cancelar si la acción es desconocida
+        return handler
+    
+    #40- Función para verifica una alerta simple utilizando page.expect_event().
+    def verificar_alerta_simple_con_expect_event(self, selector, mensaje_esperado: str, nombre_base, directorio, tiempo_espera= 5) -> bool:
+        print(f"\n--- Ejecutando con expect_event (Alerta Simple): {nombre_base} ---")
+        print(f"Verificando alerta al hacer clic en '{selector}'")
+        print(f"  --> Mensaje de alerta esperado: '{mensaje_esperado}'")
+
+        try:
+            print(f"  --> Validando visibilidad y habilitación del botón '{selector}'...")
+            expect(selector).to_be_visible(timeout=tiempo_espera * 1000)
+            expect(selector).to_be_enabled(timeout=tiempo_espera * 1000)
+            selector.highlight()
+            time.sleep(0.5)
+
+            print("  --> Preparando expect_event para la alerta y haciendo clic...")
+            with self.page.expect_event("dialog", timeout=(tiempo_espera + 5) * 1000) as info_dialogo:
+                print(f"  --> Haciendo clic en el botón '{selector}'...")
+                selector.click(timeout=tiempo_espera * 1000) # Añadir timeout explícito al click
+
+            dialogo = info_dialogo.value
+            print(f"\n  --> Alerta detectada. Tipo: '{dialogo.type}', Mensaje: '{dialogo.message}'")
+
+            if dialogo.type != "alert":
+                dialogo.accept() # Aceptar para no bloquear si es un tipo inesperado
+                raise ValueError(f"\n⚠️Tipo de diálogo inesperado: '{dialogo.type}'. Se esperaba 'alert'.")
+
+            if mensaje_esperado not in dialogo.message:
+                self.tomar_captura(f"{nombre_base}_alerta_mensaje_incorrecto", directorio)
+                error_msg = (
+                    f"\n❌ FALLO: Mensaje de alerta incorrecto.\n"
+                    f"  --> Esperado: '{mensaje_esperado}'\n"
+                    f"  --> Obtenido: '{dialogo.message}'"
+                )
+                print(error_msg)
+                dialogo.accept() # Aceptar para no bloquear antes de fallar
+                return False
+
+            dialogo.accept()
+            print("  ✅  --> Alerta ACEPTADA.")
+
+            # Opcional: Verificar el resultado en la página después de la interacción
+            # Si tu página muestra un mensaje después de aceptar la alerta, verifícalo aquí.
+            # Por ejemplo: expect(self.page.locator("#some_result_element")).to_have_text("Alerta cerrada", timeout=2000)
+
+            self.tomar_captura(f"{nombre_base}_alerta_exitosa", directorio)
+            print(f"\n✅  --> ÉXITO: La alerta se mostró, mensaje verificado y aceptada correctamente.")
+            time.sleep(0.5)
+            return True
+
+        except TimeoutError as e:
+            error_msg = (
+                f"\n❌ FALLO (Tiempo de espera excedido): La alerta no apareció después de {tiempo_espera} segundos "
+                f"al hacer clic en '{selector}', o la verificación del resultado falló.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_alerta_NO_aparece_timeout", directorio)
+            return False
+
+        except Error as e:
+            error_msg = (
+                f"\n❌ FALLO (Playwright): Error de Playwright al interactuar con el botón o la alerta.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_playwright", directorio)
+            raise
+
+        except ValueError as e:
+            error_msg = (
+                f"\n❌ FALLO (Validación): Error en la validación de la alerta.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_validacion_alerta", directorio)
+            return False
+
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado): Ocurrió un error inesperado al verificar la alerta.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_inesperado", directorio)
+            raise
+    
+    #41- Función para verifica una alerta simple utilizando page.on("dialog") con page.once().
+    def verificar_alerta_simple_con_on(self, selector, mensaje_alerta_esperado: str, nombre_base, directorio, tiempo_espera= 5) -> bool:
+        print(f"\n--- Ejecutando con page.on (Alerta Simple): {nombre_base} ---")
+        print(f"Verificando alerta simple al hacer clic en el botón '{selector}'")
+        print(f"  --> Mensaje de alerta esperado: '{mensaje_alerta_esperado}'")
+
+        # Resetear el estado para cada ejecución del test
+        self._alerta_detectada = False
+        self._alerta_mensaje_capturado = ""
+        self._alerta_tipo_capturado = ""
+
+        try:
+            # Validar que el botón es visible y habilitado antes de hacer clic
+            print(f"  --> Validando visibilidad y habilitación del botón '{selector}'...")
+            expect(selector).to_be_visible(timeout=tiempo_espera * 1000)
+            expect(selector).to_be_enabled(timeout=tiempo_espera * 1000)
+            selector.highlight()
+            time.sleep(0.5)
+
+            # === Registrar el listener ANTES de la acción ===
+            print("  --> Registrando listener para la alerta con page.once()...")
+            # Usa page.once para que el listener se desregistre automáticamente después de una vez.
+            self.page.once("dialog", self._get_simple_alert_handler_for_on())
+
+            # Hacer clic en el botón que dispara la alerta
+            print(f"  --> Haciendo clic en el botón '{selector}'...")
+            # Añadir un timeout explícito para el click
+            selector.click(timeout=tiempo_espera * 1000)
+
+
+            # Esperar a que el listener haya detectado y manejado la alerta
+            print("  --> Esperando a que la alerta sea detectada y manejada por el listener...")
+            start_time = time.time()
+            while not self._alerta_detectada and (time.time() - start_time) * 1000 < (tiempo_espera * 1000 + 2000): # Añadir un poco más de margen
+                time.sleep(0.1)
+
+            if not self._alerta_detectada:
+                raise TimeoutError(f"La alerta no fue detectada por el listener después de {tiempo_espera} segundos.")
+
+            # Validaciones después de que el listener ha actuado
+            if self._alerta_tipo_capturado != "alert":
+                raise ValueError(f"\n⚠️Tipo de diálogo inesperado: '{self._alerta_tipo_capturado}'. Se esperaba 'alert'.")
+
+            if mensaje_alerta_esperado not in self._alerta_mensaje_capturado:
+                self.tomar_captura(f"{nombre_base}_alerta_mensaje_incorrecto", directorio)
+                print(f"\n❌ FALLO: Mensaje de alerta incorrecto.\n  --> Esperado: '{mensaje_alerta_esperado}'\n  --> Obtenido: '{self._alerta_mensaje_capturado}'")
+                return False
+
+            # Opcional: Verificar que el elemento afectado por la alerta ha cambiado o desaparecido
+            # En el caso de una alerta simple, a menudo no hay un cambio visible directo en la página,
+            # pero si tu aplicación lo hace, deberías añadir una verificación aquí.
+            # Por ejemplo, si un div muestra "Alerta cerrada":
+            # expect(self.page.locator("#resultado_alerta")).to_have_text("Alerta cerrada", timeout=2000)
+
+            self.tomar_captura(f"{nombre_base}_alerta_exitosa", directorio)
+            print(f"\n✅  --> ÉXITO: La alerta se mostró, mensaje verificado y aceptada correctamente.")
+            time.sleep(0.5)
+            return True
+
+        except TimeoutError as e:
+            error_msg = (
+                f"\n❌ FALLO (Tiempo de espera excedido): La alerta no apareció o no fue manejada después de {tiempo_espera} segundos "
+                f"al hacer clic en '{selector}'.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_alerta_NO_aparece_timeout", directorio)
+            return False
+
+        except Error as e:
+            error_msg = (
+                f"\n❌ FALLO (Playwright): Error de Playwright al interactuar con el botón o la alerta.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_playwright", directorio)
+            raise
+
+        except ValueError as e:
+            error_msg = (
+                f"\n❌ FALLO (Validación): Error en la validación de la alerta.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_validacion_alerta", directorio)
+            return False
+
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado): Ocurrió un error inesperado al verificar la alerta.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_inesperado", directorio)
+            raise
+        
+    #42- Función para verifica una alerta de confirmación utilizando page.expect_event(). Este método maneja el diálogo exclusivamente con expect_event.
+    def verificar_confirmacion_expect_event(self, selector, mensaje_esperado: str, accion_confirmacion: str, nombre_base, directorio, tiempo_espera= 5) -> bool:
+        print(f"\n--- Ejecutando con expect_event (Confirmación): {nombre_base} ---")
+        print(f"Verificando confirmación al hacer clic en '{selector}' para '{accion_confirmacion}'")
+        print(f"  --> Mensaje de confirmación esperado: '{mensaje_esperado}'")
+
+        try:
+            # Validar que el botón es visible y habilitado antes de hacer clic
+            print(f"  --> Validando visibilidad y habilitación del botón '{selector}'...")
+            expect(selector).to_be_visible(timeout=tiempo_espera * 1000)
+            expect(selector).to_be_enabled(timeout=tiempo_espera * 1000)
+            selector.highlight()
+            time.sleep(0.5)
+
+            # Usar 'with page.expect_event' para sincronizar el clic con la aparición del diálogo
+            print("  --> Preparando expect_event para la confirmación y haciendo clic...")
+            # Aumentar el timeout aquí para el evento de diálogo y el click
+            with self.page.expect_event("dialog", timeout=(tiempo_espera + 10) * 1000) as info_dialogo: # Aumentado a 15 segundos (5+10)
+                print(f"  --> Haciendo clic en el botón '{selector}'...")
+                selector.click(timeout=(tiempo_espera + 5) * 1000) # Añadir timeout explícito al click (10s si tiempo_espera es 5)
+
+            # Obtener el objeto Dialog una vez que el evento ocurre
+            dialogo = info_dialogo.value
+            print(f"\n  --> Confirmación detectada. Tipo: '{dialogo.type}', Mensaje: '{dialogo.message}'")
+
+            # Verificar el tipo de diálogo
+            if dialogo.type != "confirm":
+                if accion_confirmacion == 'accept':
+                    dialogo.accept()
+                else:
+                    dialogo.dismiss()
+                raise ValueError(f"\n⚠️Tipo de diálogo inesperado: '{dialogo.type}'. Se esperaba 'confirm'.")
+
+            # Verificar el mensaje de la alerta
+            if mensaje_esperado not in dialogo.message:
+                self.tomar_captura(f"{nombre_base}_confirmacion_mensaje_incorrecto", directorio)
+                error_msg = (
+                    f"\n❌ FALLO: Mensaje de confirmación incorrecto.\n"
+                    f"  --> Esperado: '{mensaje_esperado}'\n"
+                    f"  --> Obtenido: '{dialogo.message}'"
+                )
+                print(error_msg)
+                if accion_confirmacion == 'accept':
+                    dialogo.accept()
+                else:
+                    dialogo.dismiss()
+                return False
+
+            # Realizar la acción solicitada (Aceptar o Cancelar)
+            if accion_confirmacion == 'accept':
+                dialogo.accept()
+                print("  ✅  --> Confirmación ACEPTADA.")
+            elif accion_confirmacion == 'dismiss':
+                dialogo.dismiss()
+                print("  ✅  --> Confirmación CANCELADA.")
+            else:
+                raise ValueError(f"Acción de confirmación no válida: '{accion_confirmacion}'. Use 'accept' o 'dismiss'.")
+
+            # Opcional: Verificar el resultado en la página después de la interacción
+            if accion_confirmacion == 'accept':
+                expect(self.page.locator("#demo")).to_have_text("You pressed OK!", timeout=5000) # Aumentar timeout para la verificación de texto
+                print("  ✅  --> Resultado en página: 'You pressed OK!' verificado.")
+            elif accion_confirmacion == 'dismiss':
+                expect(self.page.locator("#demo")).to_have_text("You pressed Cancel!", timeout=5000) # Aumentar timeout para la verificación de texto
+                print("  ✅  --> Resultado en página: 'You pressed Cancel!' verificado.")
+
+            self.tomar_captura(f"{nombre_base}_confirmacion_exitosa_{accion_confirmacion}", directorio)
+            print(f"\n✅  --> ÉXITO: La confirmación se mostró, mensaje verificado y '{accion_confirmacion}' correctamente.")
+            time.sleep(0.5)
+            return True
+
+        except TimeoutError as e:
+            error_msg = (
+                f"\n❌ FALLO (Tiempo de espera excedido): La confirmación no apareció después de {tiempo_espera} segundos "
+                f"al hacer clic en '{selector}', o la verificación del resultado falló.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_confirmacion_NO_aparece_timeout", directorio)
+            return False
+
+        except Error as e:
+            error_msg = (
+                f"\n❌ FALLO (Playwright): Error de Playwright al interactuar con el botón o la confirmación.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_playwright", directorio)
+            raise
+
+        except ValueError as e:
+            error_msg = (
+                f"\n❌ FALLO (Validación): Error en la validación de la confirmación.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_validacion_confirmacion", directorio)
+            return False
+
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado): Ocurrió un error inesperado al verificar la confirmación.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_inesperado", directorio)
+            raise
+        
+    #43- Función para verifica una alerta de confirmación utilizando page.on("dialog") con page.once().
+    def verificar_confirmacion_on_dialog(self, selector, mensaje_esperado: str, accion_confirmacion: str, nombre_base, directorio, tiempo_espera= 5) -> bool:
+        print(f"\n--- Ejecutando con page.on (Confirmación): {nombre_base} ---")
+        print(f"Verificando confirmación al hacer clic en '{selector}' para '{accion_confirmacion}'")
+        print(f"  --> Mensaje de confirmación esperado: '{mensaje_esperado}'")
+
+        # Resetear el estado para cada ejecución del test
+        self._alerta_detectada = False
+        self._alerta_mensaje_capturado = ""
+        self._alerta_tipo_capturado = ""
+
+        try:
+            # Validar que el botón es visible y habilitado antes de hacer clic
+            print(f"  --> Validando visibilidad y habilitación del botón '{selector}'...")
+            expect(selector).to_be_visible(timeout=tiempo_espera * 1000)
+            expect(selector).to_be_enabled(timeout=tiempo_espera * 1000)
+            selector.highlight()
+            time.sleep(0.5)
+
+            # Registrar el listener para la confirmación.
+            print("  --> Registrando listener para la confirmación con page.once()...")
+            self.page.once("dialog", self._get_confirmation_dialog_handler_for_on(accion_confirmacion))
+
+            # Hacer clic en el botón
+            print(f"  --> Haciendo clic en el botón '{selector}'...")
+            selector.click(timeout=(tiempo_espera + 5) * 1000) # Añadir timeout explícito al click
+
+            # Esperar a que el listener haya detectado y manejado la confirmación
+            print("  --> Esperando a que la confirmación sea detectada y manejada por el listener...")
+            start_time = time.time()
+            # Aumentar el timeout de espera del loop para asegurar que el handler se dispara
+            while not self._alerta_detectada and (time.time() - start_time) * 1000 < (tiempo_espera * 1000 + 5000):
+                time.sleep(0.1)
+
+            if not self._alerta_detectada:
+                raise TimeoutError(f"La confirmación no fue detectada por el listener después de {tiempo_espera} segundos.")
+
+            # Validaciones después de que el listener ha actuado
+            if self._alerta_tipo_capturado != "confirm":
+                raise ValueError(f"\n⚠️Tipo de diálogo inesperado: '{self._alerta_tipo_capturado}'. Se esperaba 'confirm'.")
+
+            if mensaje_esperado not in self._alerta_mensaje_capturado:
+                self.tomar_captura(f"{nombre_base}_confirmacion_mensaje_incorrecto", directorio)
+                print(f"\n❌ FALLO: Mensaje de confirmación incorrecto.\n  --> Esperado: '{mensaje_esperado}'\n  --> Obtenido: '{self._alerta_mensaje_capturado}'")
+                return False
+
+            # Opcional: Verificar el resultado en la página después de la interacción
+            if accion_confirmacion == 'accept':
+                expect(self.page.locator("#demo")).to_have_text("You pressed OK!", timeout=5000)
+                print("  ✅  --> Resultado en página: 'You pressed OK!' verificado.")
+            elif accion_confirmacion == 'dismiss':
+                expect(self.page.locator("#demo")).to_have_text("You pressed Cancel!", timeout=5000)
+                print("  ✅  --> Resultado en página: 'You pressed Cancel!' verificado.")
+
+            self.tomar_captura(f"{nombre_base}_confirmacion_exitosa_{accion_confirmacion}", directorio)
+            print(f"\n✅  --> ÉXITO: La confirmación se mostró, mensaje verificado y '{accion_confirmacion}' correctamente.")
+            time.sleep(0.5)
+            return True
+
+        except TimeoutError as e:
+            error_msg = (
+                f"\n❌ FALLO (Tiempo de espera excedido): La confirmación no apareció después de {tiempo_espera} segundos "
+                f"al hacer clic en '{selector}', o la verificación del resultado falló.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_confirmacion_NO_aparece_timeout", directorio)
+            return False
+
+        except Error as e:
+            error_msg = (
+                f"\n❌ FALLO (Playwright): Error de Playwright al interactuar con el botón o la confirmación.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_playwright", directorio)
+            raise
+
+        except ValueError as e:
+            error_msg = (
+                f"\n❌ FALLO (Validación): Error en la validación de la confirmación.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_validacion_confirmacion", directorio)
+            return False
+
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado): Ocurrió un error inesperado al verificar la confirmación.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_inesperado", directorio)
+            raise
+        
+    #44- Funció para verificar_prompt_expect_event (Implementación para Prompt Alert con expect_event)
+    def verificar_prompt_expect_event(self, selector, mensaje_prompt_esperado: str, input_text: str, accion_prompt: str, nombre_base, directorio, tiempo_espera= 5) -> bool:
+        print(f"\n--- Ejecutando con expect_event (Prompt Alert): {nombre_base} ---")
+        print(f"Verificando prompt al hacer clic en '{selector}' para '{accion_prompt}'")
+        print(f"  --> Mensaje del prompt esperado: '{mensaje_prompt_esperado}'")
+        if accion_prompt == 'accept':
+            print(f"  --> Texto a introducir: '{input_text}'")
+
+        try:
+            print(f"  --> Validando visibilidad y habilitación del botón '{selector}'...")
+            expect(selector).to_be_visible(timeout=tiempo_espera * 1000)
+            expect(selector).to_be_enabled(timeout=tiempo_espera * 1000)
+            selector.highlight()
+            time.sleep(0.5)
+
+            print("  --> Preparando expect_event para el prompt y haciendo clic...")
+            with self.page.expect_event("dialog", timeout=(tiempo_espera + 10) * 1000) as info_dialogo:
+                print(f"  --> Haciendo clic en el botón '{selector}'...")
+                selector.click(timeout=(tiempo_espera + 5) * 1000)
+
+            dialogo = info_dialogo.value
+            print(f"\n  --> Prompt detectado. Tipo: '{dialogo.type}', Mensaje: '{dialogo.message}'")
+
+            # Verificar el tipo de diálogo
+            if dialogo.type != "prompt":
+                # Si el tipo es inesperado, intenta cerrarlo para no bloquear el test
+                if accion_prompt == 'accept':
+                    dialogo.accept()
+                else:
+                    dialogo.dismiss()
+                raise ValueError(f"\n⚠️Tipo de diálogo inesperado: '{dialogo.type}'. Se esperaba 'prompt'.")
+
+            # Verificar el mensaje del prompt
+            if mensaje_prompt_esperado not in dialogo.message:
+                self.tomar_captura(f"{nombre_base}_prompt_mensaje_incorrecto", directorio)
+                error_msg = (
+                    f"\n❌ FALLO: Mensaje del prompt incorrecto.\n"
+                    f"  --> Esperado: '{mensaje_prompt_esperado}'\n"
+                    f"  --> Obtenido: '{dialogo.message}'"
+                )
+                print(error_msg)
+                # Intenta cerrar el diálogo antes de fallar
+                if accion_prompt == 'accept':
+                    dialogo.accept()
+                else:
+                    dialogo.dismiss()
+                return False
+
+            # Realizar la acción solicitada (Introducir texto y Aceptar, o Cancelar)
+            if accion_prompt == 'accept':
+                # --- CORRECCIÓN AQUÍ ---
+                dialogo.accept(input_text) # Pasa el texto directamente a accept()
+                print(f"  --> Texto '{input_text}' introducido en el prompt y aceptado.")
+            elif accion_prompt == 'dismiss':
+                dialogo.dismiss()
+                print("  ✅  --> Prompt CANCELADO.")
+            else:
+                raise ValueError(f"Acción de prompt no válida: '{accion_prompt}'. Use 'accept' o 'dismiss'.")
+
+        except TimeoutError as e:
+            error_msg = (
+                f"\n❌ FALLO (Tiempo de espera excedido): El prompt no apareció después de {tiempo_espera} segundos "
+                f"al hacer clic en '{selector}', o la verificación del resultado falló.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_prompt_NO_aparece_timeout", directorio)
+            return False
+
+        except Error as e:
+            error_msg = (
+                f"\n❌ FALLO (Playwright): Error de Playwright al interactuar con el botón o el prompt.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_playwright", directorio)
+            raise
+
+        except ValueError as e:
+            error_msg = (
+                f"\n❌ FALLO (Validación): Error en la validación del prompt.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_validacion_prompt", directorio)
+            return False
+
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado): Ocurrió un error inesperado al verificar el prompt.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_inesperado", directorio)
+            raise
+        
+    #45- Función para verifica una alerta de tipo 'prompt' utilizando page.on("dialog") con page.once().
+    def verificar_prompt_on_dialog(self, selector, mensaje_prompt_esperado: str, input_text: str, accion_prompt: str, nombre_base, directorio, tiempo_espera= 5) -> bool:
+        print(f"\n--- Ejecutando con page.on (Prompt Alert): {nombre_base} ---")
+        print(f"Verificando prompt al hacer clic en '{selector}' para '{accion_prompt}'")
+        print(f"  --> Mensaje del prompt esperado: '{mensaje_prompt_esperado}'")
+        if accion_prompt == 'accept':
+            print(f"  --> Texto a introducir: '{input_text}'")
+
+        # Resetear el estado para cada ejecución del test
+        self._alerta_detectada = False
+        self._alerta_mensaje_capturado = ""
+        self._alerta_tipo_capturado = ""
+        self._alerta_input_capturado = "" # Resetear también el input capturado
+
+        try:
+            print(f"  --> Validando visibilidad y habilitación del botón '{selector}'...")
+            expect(selector).to_be_visible(timeout=tiempo_espera * 1000)
+            expect(selector).to_be_enabled(timeout=tiempo_espera * 1000)
+            selector.highlight()
+            time.sleep(0.5)
+
+            # === Registrar el listener ANTES de la acción ===
+            print("  --> Registrando listener para el prompt con page.once()...")
+            # Usamos el handler corregido que pasa el input_text a dialog.accept()
+            self.page.once("dialog", self._get_prompt_dialog_handler_for_on(input_text, accion_prompt))
+
+            # Hacer clic en el botón que dispara el prompt
+            print(f"  --> Haciendo clic en el botón '{selector}'...")
+            selector.click(timeout=(tiempo_espera + 5) * 1000)
+
+            # Esperar a que el listener haya detectado y manejado el prompt
+            print("  --> Esperando a que el prompt sea detectado y manejado por el listener...")
+            start_time = time.time()
+            while not self._alerta_detectada and (time.time() - start_time) * 1000 < (tiempo_espera * 1000 + 5000):
+                time.sleep(0.1)
+
+            if not self._alerta_detectada:
+                raise TimeoutError(f"El prompt no fue detectado por el listener después de {tiempo_espera} segundos.")
+
+            # Validaciones después de que el listener ha actuado
+            if self._alerta_tipo_capturado != "prompt":
+                raise ValueError(f"\n⚠️Tipo de diálogo inesperado: '{self._alerta_tipo_capturado}'. Se esperaba 'prompt'.")
+
+            if mensaje_prompt_esperado not in self._alerta_mensaje_capturado:
+                self.tomar_captura(f"{nombre_base}_prompt_mensaje_incorrecto", directorio)
+                print(f"\n❌ FALLO: Mensaje del prompt incorrecto.\n  --> Esperado: '{mensaje_prompt_esperado}'\n  --> Obtenido: '{self._alerta_mensaje_capturado}'")
+                return False
+
+            # Verificar que el texto introducido (si es el caso) se ha guardado correctamente
+            if accion_prompt == 'accept' and self._alerta_input_capturado != input_text:
+                self.tomar_captura(f"{nombre_base}_prompt_input_incorrecto", directorio)
+                print(f"\n❌ FALLO: Texto introducido en el prompt incorrecto.\n  --> Esperado: '{input_text}'\n  --> Obtenido (capturado): '{self._alerta_input_capturado}'")
+                return False
+
+            # >>> Lógica para verificar el resultado en la página ELIMINADA de esta función <<<
+
+            self.tomar_captura(f"{nombre_base}_prompt_exitosa_{accion_prompt}", directorio)
+            print(f"\n✅  --> ÉXITO: El prompt se mostró, mensaje verificado y acción '{accion_prompt}' completada.")
+            time.sleep(0.5)
+            return True
+
+        except TimeoutError as e:
+            error_msg = (
+                f"\n❌ FALLO (Tiempo de espera excedido): El prompt no apareció o no fue manejado después de {tiempo_espera} segundos "
+                f"al hacer clic en '{selector}'.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_prompt_NO_aparece_timeout", directorio)
+            return False
+
+        except Error as e:
+            error_msg = (
+                f"\n❌ FALLO (Playwright): Error de Playwright al interactuar con el botón o el prompt.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_playwright", directorio)
+            raise
+
+        except ValueError as e:
+            error_msg = (
+                f"\n❌ FALLO (Validación): Error en la validación del prompt.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_validacion_prompt", directorio)
+            return False
+
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado): Ocurrió un error inesperado al verificar el prompt.\n"
                 f"Detalles: {e}"
             )
             print(error_msg)
