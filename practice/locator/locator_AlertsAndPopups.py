@@ -24,3 +24,18 @@ class AlertsPopupsLocatorsPage:
     @property
     def botonPromptAlert(self):
         return self.page.locator("#HTML9").get_by_text("Prompt Alert")
+    
+    #selector de botón de abrir nueva pestaña
+    @property
+    def botonNewTab(self):
+        return self.page.get_by_role("button", name="New Tab")
+    
+    #Selector de titulo enbezado nueva pestañ
+    @property
+    def tituloEncabezadoNuevatab1(self):
+        return self.page.locator("#header-inner > div.titlewrapper > h1")
+    
+    #Selector de titulo enbezado nueva pestañ
+    @property
+    def tituloEncabezadoNuevatab2(self):
+        return self.page.locator("//*[@id='header-inner']/div[2]/p")

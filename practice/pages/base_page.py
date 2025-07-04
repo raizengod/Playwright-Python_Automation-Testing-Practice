@@ -10,12 +10,18 @@ class Funciones_Globales:
     
     #1- Creamos una función incial 'Constructor'-----ES IMPORTANTE TENER ESTE INICIADOR-----
     def __init__(self, page):
-        self.page= page
+        self.page = page
         self._alerta_detectada = False
         self._alerta_mensaje_capturado = ""
         self._alerta_tipo_capturado = ""
         self._alerta_input_capturado = ""
-        self._dialog_handler_registered = False # <--- ¡Esta línea es crucial!   
+        self._dialog_handler_registered = False # <--- ¡Esta línea es crucial!
+
+        # --- Nuevas variables para el manejo de pestañas (popups) ---
+        self._popup_detectado = False
+        self._popup_page = None # Para almacenar el objeto Page de la nueva pestaña
+        self._popup_url_capturado = ""
+        self._popup_title_capturado = ""  
         
     #2- Función para generar el nombre de archivo con marca de tiempo
     def _generar_nombre_archivo_con_timestamp(self, prefijo):
@@ -2082,7 +2088,7 @@ class Funciones_Globales:
                 print(f"  --> [LISTENER ON - Prompt Dinámico] Acción desconocida '{accion}'. Cancelando por defecto.")
                 dialog.dismiss() # Por seguridad, cancelar si la acción es desconocida
         return handler
-    
+
     #40- Función para verifica una alerta simple utilizando page.expect_event().
     def verificar_alerta_simple_con_expect_event(self, selector, mensaje_esperado: str, nombre_base, directorio, tiempo_espera= 5) -> bool:
         print(f"\n--- Ejecutando con expect_event (Alerta Simple): {nombre_base} ---")
@@ -2661,3 +2667,88 @@ class Funciones_Globales:
             print(error_msg)
             self.tomar_captura(f"{nombre_base}_error_inesperado", directorio)
             raise
+        
+    #46- Función para espera por una nueva pestaña/página (popup) que se haya abierto y cambia el foco de la instancia 'page' actual a esa nueva pestaña.
+    def abrir_y_cambiar_a_nueva_pestana(self, selector_boton_apertura, nombre_base, directorio, tiempo_espera=15) -> Page | None:
+        print(f"\n🔄 Preparando para hacer clic y esperar nueva pestaña/popup. Esperando hasta {tiempo_espera} segundos...")
+
+        nueva_pagina = None
+        try:
+            # Usar page.context.expect_event("page") para esperar la nueva página
+            # y realizar la acción de click DENTRO de este contexto.
+            # Esto asegura que la página capturada es la que se abre DESPUÉS del click.
+            with self.page.context.expect_event("page", timeout=tiempo_espera * 1000) as event_info:
+                # Realizar el clic en el botón que abre la nueva pestaña
+                self.hacer_click_en_elemento(selector_boton_apertura, f"{nombre_base}_click_para_nueva_pestana", directorio, None)
+            
+            nueva_pagina = event_info.value # El objeto 'Page' de la nueva pestaña
+            
+            # Esperar a que la nueva página cargue completamente y el body sea visible
+            nueva_pagina.wait_for_load_state()
+            nueva_pagina.wait_for_selector("body", timeout=tiempo_espera * 1000)
+
+            print(f"✅ Nueva pestaña abierta y detectada: URL = {nueva_pagina.url}, Título = {nueva_pagina.title}")
+            
+            # Actualizar self.page para que las subsiguientes operaciones usen la nueva página
+            self.page = nueva_pagina 
+            self.tomar_captura(f"{nombre_base}_nueva_pestana_abierta", directorio)
+            
+            return nueva_pagina
+
+        except TimeoutError as e:
+            error_msg = (
+                f"\n❌ FALLO (Timeout): No se detectó ninguna nueva pestaña/página después de {tiempo_espera} segundos "
+                f"al intentar hacer clic en el botón de apertura. Asegúrate de que el clic abre una nueva pestaña.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_no_se_detecto_popup_timeout", directorio)
+            return None
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado): Ocurrió un error inesperado al intentar abrir y cambiar a la nueva pestaña.\\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_inesperado_abrir_pestana", directorio)
+            raise
+
+    #47- Función que cierra la pestaña actual y, si hay otras pestañas abiertas en el mismo contexto, cambia el foco a la primera pestaña disponible.
+    def cerrar_pestana_actual(self, nombre_base, directorio, tiempo= 1):
+        print(f"\n🚪 Cerrando la pestaña actual: URL = {self.page.url}")
+        try:
+            current_page_url = self.page.url # Guardar la URL antes de cerrar para el log
+            
+            # ¡IMPORTANTE! Tomar la captura *antes* de cerrar la página.
+            # Cambié el sufijo para indicar que es antes del cierre.
+            self.tomar_captura(f"{nombre_base}_antes_de_cerrar", directorio) 
+            
+            self.page.close()
+            print(f"\n✅ Pestaña con URL '{current_page_url}' cerrada exitosamente.")
+            
+            time.sleep(tiempo) # Pequeña espera después de cerrar
+
+            # Si hay otras páginas abiertas en el contexto, intenta cambiar a la primera disponible
+            if self.page.context.pages:
+                self.page = self.page.context.pages[0]
+                print(f"\n🔄 Foco cambiado automáticamente a la primera pestaña disponible: URL = {self.page.url}")
+                # Opcional: Podrías tomar otra captura aquí si quieres mostrar el estado de la nueva pestaña activa.
+                # self.tomar_captura(f"{nombre_base}_foco_cambiado", directorio)
+            else:
+                print("\n⚠️ No hay más pestañas abiertas en el contexto del navegador. La instancia 'page' no apunta a ninguna página activa.")
+                self.page = None # No hay página activa
+
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado): Ocurrió un error al intentar cerrar la pestaña actual.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            # NOTA: Si el error ya es 'Target page, context or browser has been closed',
+            # intentar tomar otra captura con self.page.screenshot() aquí también fallará.
+            # Por lo tanto, se recomienda NO intentar tomar una captura en el bloque de error
+            # si el problema es que la página ya está cerrada.
+            # self.tomar_captura(f"{nombre_base}_error_cerrar_pestana", directorio) # Eliminar o comentar esta línea si está aquí
+            raise # Re-lanzar la excepción para que el test falle correctamente
+        
+    #
