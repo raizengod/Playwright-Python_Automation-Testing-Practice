@@ -26,7 +26,6 @@ Sigue estos pasos para configurar y ejecutar las pruebas en tu entorno local:
 
 **Prerrequisitos**
 1. **Instalar Python 3.13.5** (si no lo tienes instalado).
-2. **Instalar la Herramienta de Línea de Comandos de Allure:**
 
 Para ejecutar las pruebas localmente, sigue los siguientes pasos:
 
