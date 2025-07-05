@@ -39,3 +39,19 @@ class AlertsPopupsLocatorsPage:
     @property
     def tituloEncabezadoNuevatab2(self):
         return self.page.locator("//*[@id='header-inner']/div[2]/p")
+    
+    #Selector de botón de abrir nueva ventana
+    @property
+    def botonNuevaVentana(self):
+        return self.page.get_by_role("button", name= "Popup Windows")
+    
+    #Selector de titulo de nueva ventana
+    @property
+    def tituloNuevaVenatana(self):
+        return self.page.get_by_role("heading", name="Selenium automates browsers.")
+    
+    #Selector de titulo de nueva ventana 2
+    @property
+    def tituloNuevaVenatana2(self):
+        return self.page.get_by_role("heading", name="Playwright enables reliable")
+    

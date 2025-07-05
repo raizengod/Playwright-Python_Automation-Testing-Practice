@@ -5,6 +5,7 @@ import random
 from playwright.sync_api import Page, expect, Error , TimeoutError, sync_playwright, Response, Dialog 
 from datetime import datetime
 import os
+from typing import Union, List
 
 class Funciones_Globales:
     
@@ -22,6 +23,18 @@ class Funciones_Globales:
         self._popup_page = None # Para almacenar el objeto Page de la nueva pestaña
         self._popup_url_capturado = ""
         self._popup_title_capturado = ""  
+        
+        # Nueva lista para almacenar todas las nuevas páginas abiertas durante una interacción
+        self._all_new_pages_opened_by_click: List[Page] = []
+        
+        # Registramos el manejador de eventos para nuevas páginas
+        # Limpiamos la lista al registrar para evitar resagos de pruebas anteriores
+        self.page.context.on("page", self._on_new_page)
+        # Esto es importante: Si se va a usar _all_new_pages_opened_by_click,
+        # necesitamos una forma de reiniciarla o asegurarnos de que solo contenga
+        # las páginas relevantes para la acción actual.
+        # Una estrategia es limpiar la lista antes de la acción que abre la nueva ventana,
+        # y luego recopilar las páginas.
         
     #2- Función para generar el nombre de archivo con marca de tiempo
     def _generar_nombre_archivo_con_timestamp(self, prefijo):
@@ -2089,6 +2102,13 @@ class Funciones_Globales:
                 dialog.dismiss() # Por seguridad, cancelar si la acción es desconocida
         return handler
 
+    # Handler de eventos para cuando se abre una nueva página.
+    def _on_new_page(self, new_page: Page):
+        print(f"\n✨ Nueva página detectada: URL = {new_page.url}, Título = {new_page.title()}")
+        self._all_new_pages_opened_by_click.append(new_page)
+        # Opcional: Si solo te interesa la primera popup o una específica, podrías manejarlo aquí.
+        # Por ahora, solo la añadimos a la lista.
+    
     #40- Función para verifica una alerta simple utilizando page.expect_event().
     def verificar_alerta_simple_con_expect_event(self, selector, mensaje_esperado: str, nombre_base, directorio, tiempo_espera= 5) -> bool:
         print(f"\n--- Ejecutando con expect_event (Alerta Simple): {nombre_base} ---")
@@ -2751,4 +2771,148 @@ class Funciones_Globales:
             # self.tomar_captura(f"{nombre_base}_error_cerrar_pestana", directorio) # Eliminar o comentar esta línea si está aquí
             raise # Re-lanzar la excepción para que el test falle correctamente
         
-    #
+    #48- Función para hacer clic en un selector y espera que se abran nuevas ventanas/pestañas.
+    # Retorna una lista de objetos Page para las nuevas ventanas.
+    def hacer_clic_y_abrir_nueva_ventana(self, selector, nombre_base, directorio, nombre_paso="", timeout=30000) -> List[Page]:
+        print(f"\n{nombre_paso}: Haciendo clic en '{selector}' para abrir nuevas ventanas.")
+        self.tomar_captura(f"{nombre_base}_antes_clic_nueva_ventana", directorio)
+        
+        # Limpiar la lista de páginas antes de la interacción para evitar acumulación
+        self._all_new_pages_opened_by_click = []
+
+        try:
+            # Crea una tarea que espera por la nueva página antes de hacer el click.
+            # Esto es crucial para Playwright: el "listener" debe estar activo ANTES de la acción.
+            with self.page.context.expect_event("page", timeout=timeout) as page_info:
+                selector.click() # Realiza el click que debería abrir una nueva ventana
+            
+            # La nueva página se añadió a _all_new_pages_opened_by_click por el _on_new_page handler.
+            # Esperar a que la nueva(s) página(s) cargue(n) completamente
+            for new_page in self._all_new_pages_opened_by_click:
+                new_page.wait_for_load_state("load")
+                new_page.wait_for_load_state("domcontentloaded")
+                new_page.wait_for_load_state("networkidle")
+                print(f"  --> Nueva página cargada: URL = {new_page.url}")
+            
+            self.tomar_captura(f"{nombre_base}_despues_clic_nueva_ventana", directorio)
+            print(f"  ✅ Se han detectado y cargado {len(self._all_new_pages_opened_by_click)} nueva(s) ventana(s).")
+            return self._all_new_pages_opened_by_click
+
+        except TimeoutError:
+            print(f"\n❌ FALLO: No se detectó ninguna nueva ventana después de hacer clic en '{selector}' dentro del tiempo de espera de {timeout/1000} segundos.")
+            self.tomar_captura(f"{nombre_base}_no_nueva_ventana", directorio)
+            return [] # Retorna una lista vacía si no se abre ninguna ventana
+
+        except Exception as e:
+            error_msg = f"\n❌ FALLO (Inesperado) - {nombre_paso}: Ocurrió un error al intentar abrir nueva ventana.\nDetalles: {e}"
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_abrir_nueva_ventana", directorio)
+            raise # Re-lanzar la excepción para que el test falle correctamente
+
+    #49- Función para cambia el foco del navegador a una ventana/pestaña específica,
+    #ya sea por su índice (int) o por una parte de su URL o título (str).
+    def cambiar_foco_entre_ventanas(self, nombre_base, directorio, opcion_ventana: Union[int, str], nombre_paso=""):
+        print(f"\n{nombre_paso}: Intentando cambiar el foco a la ventana/pestaña: '{opcion_ventana}'")
+        
+        target_page_to_focus: Page = None
+        
+        try:
+            # Obtener todas las páginas actuales en el contexto del navegador
+            all_pages_in_context = self.page.context.pages
+            print(f"Ventanas/pestañas abiertas actualmente: {len(all_pages_in_context)}")
+            for i, p in enumerate(all_pages_in_context):
+                print(f"  [{i}] URL: {p.url} | Título: {p.title()}")
+
+            if isinstance(opcion_ventana, int):
+                if 0 <= opcion_ventana < len(all_pages_in_context):
+                    target_page_to_focus = all_pages_in_context[opcion_ventana]
+                    print(f"  --> Seleccionada por índice: {opcion_ventana}")
+                else:
+                    error_msg = f"\n❌ FALLO: El índice '{opcion_ventana}' está fuera del rango de pestañas abiertas (0-{len(all_pages_in_context)-1})."
+                    print(error_msg)
+                    self.tomar_captura(f"{nombre_base}_error_indice_invalido", directorio)
+                    raise IndexError(error_msg)
+            elif isinstance(opcion_ventana, str):
+                # Intentar encontrar por URL o título
+                for p in all_pages_in_context:
+                    if opcion_ventana in p.url or opcion_ventana in p.title():
+                        target_page_to_focus = p
+                        print(f"  --> Seleccionada por coincidencia de URL/Título: '{opcion_ventana}'")
+                        break
+                if not target_page_to_focus:
+                    error_msg = f"\n❌ FALLO: No se encontró ninguna pestaña con la URL o título que contenga '{opcion_ventana}'."
+                    print(error_msg)
+                    self.tomar_captura(f"{nombre_base}_error_no_coincidencia_foco", directorio)
+                    raise ValueError(error_msg)
+            else:
+                error_msg = f"\n❌ FALLO: El tipo de 'opcion_ventana' no es válido. Debe ser int o str."
+                print(error_msg)
+                self.tomar_captura(f"{nombre_base}_error_tipo_opcion_foco", directorio)
+                raise TypeError(error_msg)
+
+            # Si la página objetivo ya es la página actual, no es necesario cambiar
+            if target_page_to_focus == self.page:
+                print(f"\n✅ El foco ya está en la ventana seleccionada. No es necesario cambiar.")
+            else:
+                self.page = target_page_to_focus
+                print(f"\n✅ Foco cambiado exitosamente a la ventana/pestaña seleccionada.")
+            
+            print(f"\n   URL de la pestaña actual: {self.page.url}")
+            print(f"\n   Título de la pestaña actual: {self.page.title()}")
+            self.tomar_captura(f"{nombre_base}_foco_cambiado", directorio)
+
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado) - {nombre_paso}: Ocurrió un error al intentar cambiar el foco de ventana.\\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_cambiar_foco_ventana", directorio)
+            raise
+
+    #50- Función que ierra una Page object específica.
+    #Intenta cambiar el foco a la primera página disponible si la página cerrada era la actual.
+    def cerrar_pestana_especifica(self, page_to_close: Page, nombre_base, directorio, nombre_paso=""):
+        print(f"\n{nombre_paso}: Intentando cerrar la pestaña con URL: {page_to_close.url}")
+        try:
+            if not page_to_close.is_closed():
+                is_current_page = (self.page == page_to_close)
+                closed_url = page_to_close.url
+                page_to_close.close()
+                print(f"✅ Pestaña '{closed_url}' cerrada exitosamente.")
+                self.tomar_captura(f"{nombre_base}_pestana_cerrada", directorio)
+                
+                # Si la página cerrada era la página actual (self.page), cambiar el foco
+                if is_current_page:
+                    print("\nDetectado: La pestaña cerrada era la pestaña activa.")
+                    # Buscar la primera página disponible en el contexto
+                    if self.page.context.pages:
+                        self.page = self.page.context.pages[0]
+                        print(f"🔄 Foco cambiado automáticamente a la primera pestaña disponible: URL = {self.page.url}")
+                        self.tomar_captura(f"{nombre_base}_foco_cambiado_despues_cerrar", directorio)
+                    else:
+                        print("⚠️ No hay más pestañas abiertas en el contexto del navegador. La instancia 'page' no apunta a ninguna página activa.")
+                        self.page = None # No hay página activa
+            else:
+                print(f"ℹ️ La pestaña con URL '{page_to_close.url}' ya estaba cerrada.")
+
+        except Error as e: # Playwright-specific error
+            # Esto puede ocurrir si la página ya se cerró por alguna razón externa.
+            if "Target page, context or browser has been closed" in str(e):
+                print(f"\n⚠️ Advertencia: La pestaña ya estaba cerrada o el contexto ya no es válido. Detalles: {e}")
+            else:
+                error_msg = (
+                    f"\n❌ FALLO (Playwright Error) - {nombre_paso}: Ocurrió un error de Playwright al intentar cerrar la pestaña.\\n"
+                    f"Detalles: {e}"
+                )
+                print(error_msg)
+                self.tomar_captura(f"{nombre_base}_error_cerrar_pestana_playwright", directorio)
+                raise
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado) - {nombre_paso}: Ocurrió un error al intentar cerrar la pestaña.\\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_cerrar_pestana", directorio)
+            raise

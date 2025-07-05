@@ -97,6 +97,7 @@ ATP/
 │   │   ├── locator_getByTestId.py
 │   │   ├── locator_getByText.py
 │   │   ├── locator_getByTitle.py
+│   │   ├── locator_mouseAction
 │   │   ├── locator_tablaDinamica.py
 │   │   ├── locator_tablaEstatica.py
 │   │   └── locator_uploadFiles.py
@@ -117,6 +118,7 @@ ATP/
 │   │   ├── test_getByTestId.py
 │   │   ├── test_getByText.py
 │   │   ├── test_getByTitle.py
+│   │   ├── test_mouseAction.py
 │   │   ├── test_tablaDinamica.py
 │   │   └── test_tablaEstatica.py
 │   └── util/
