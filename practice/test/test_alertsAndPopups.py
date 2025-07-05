@@ -91,3 +91,107 @@ def test_ver_nuevo_tab(set_up_AlertsAndPopups):
     fg.validar_url_actual(".*/p/playwrightpractice.html")
     fg.validar_titulo_de_web("Automation Testing Practice: PlaywrightPractice", "validar_titulo_de_web", config.SCREENSHOT_DIR)
     fg.esperar_fijo(2)
+    
+def test_ver_nueva_ventana(set_up_AlertsAndPopups):
+    page_original = set_up_AlertsAndPopups # Guardamos la referencia a la página ORIGINAL
+
+    fg = Funciones_Globales(page_original) # fg se inicializa con la página original
+    apl_original = AlertsPopupsLocatorsPage(page_original) # Instancia para la página original
+
+    # Definir nombre_base_test y directorio_capturas antes de usarlos
+    nombre_base_test = "TestNuevaVentana"
+
+    # --- Inicia el bloque principal de try-except ---
+    try:
+        # Paso 1: Realizar la acción que abre la(s) nueva(s) ventana(s)
+        print("\n--- Ejecutando acción para abrir nueva(s) ventana(s) ---")
+        todas_las_nuevas_ventanas = fg.hacer_clic_y_abrir_nueva_ventana(apl_original.botonNuevaVentana, "hacer_clic_y_abrir_nueva_ventana_boton_Nueva_Ventana", config.SCREENSHOT_DIR, nombre_paso="Clic para abrir PopUp Windows")
+
+        # Paso 2: Si se abrieron ventanas, procesarlas
+        if todas_las_nuevas_ventanas:
+            print(f"\n✅ Se detectaron {len(todas_las_nuevas_ventanas)} nueva(s) ventana(s).")
+            
+            selenium_page_found = False
+            playwright_page_found = False # Reset this flag for the Playwright check
+
+            # Iterar una sola vez para buscar ambas páginas
+            for page_obj in todas_las_nuevas_ventanas:
+                try:
+                    if "selenium.dev" in page_obj.url and not selenium_page_found: # Added flag check
+                        print("\n--- Cambiando foco a la ventana de Selenium ---")
+                        fg.cambiar_foco_entre_ventanas(nombre_base_test, config.SCREENSHOT_DIR, opcion_ventana=page_obj.url, nombre_paso="Cambio de foco a Ventana de Selenium")
+                        apl_selenium_ventana = AlertsPopupsLocatorsPage(fg.page) 
+                        fg.page.wait_for_load_state()
+                        fg.verificar_texto_contenido(apl_selenium_ventana.tituloNuevaVenatana, "Selenium automates browsers. That's it!", "verificar_texto_contenido_ventana_selenium", config.SCREENSHOT_DIR) 
+                        
+                        print("✅ Aserciones en la nueva ventana de Selenium pasadas exitosamente.")
+                        selenium_page_found = True
+                        
+                    if "playwright.dev" in page_obj.url and not playwright_page_found: # Added flag check
+                        print("\n--- Cambiando foco a la ventana de Playwright ---")
+                        fg.cambiar_foco_entre_ventanas("cambiar_foco_entre_ventanas_playwright", config.SCREENSHOT_DIR, opcion_ventana=page_obj.url, nombre_paso="Cambio de foco a Ventana de Playwright")
+                                                
+                        apl_playwright_ventana = AlertsPopupsLocatorsPage(fg.page)
+                        fg.page.wait_for_load_state()
+
+                        fg.verificar_texto_contenido(apl_playwright_ventana.tituloNuevaVenatana2, "Playwright enables reliable end-to-end testing for modern web apps.", "verificar_texto_contenido_ventana_playwright", config.SCREENSHOT_DIR)
+                        print("\n✅ Aserciones en la nueva ventana de Playwright pasadas exitosamente.")
+                        playwright_page_found = True
+                        
+                except Exception as e:
+                    print(f"\n❌ Error procesando ventana: {page_obj.url if page_obj else 'N/A'}. Detalles: {e}")
+                    # Continúa para intentar procesar otras ventanas
+
+            if not selenium_page_found:
+                print("\n❌ No se encontró la ventana de Selenium entre las nuevas pestañas.")
+                raise ValueError("La ventana de Selenium no se abrió o no se encontró.")
+            
+            if not playwright_page_found:
+                print("\n❌ No se encontró la ventana de Playwright entre las nuevas pestañas.")
+                raise ValueError("La ventana de Playwright no se abrió o no se encontró.")
+
+            # Paso 3: Cerrar todas las ventanas nuevas que no son la original
+            print("\n--- Cerrando todas las ventanas nuevas (Selenium, Playwright, etc.) ---")
+            # Hacer una copia de la lista para evitar problemas al modificarla mientras se itera
+            all_current_browser_pages = list(fg.page.context.pages) 
+            for page_obj in all_current_browser_pages:
+                # Asegurarse de no intentar cerrar la página original si sigue en la lista
+                if page_obj != page_original and not page_obj.is_closed(): 
+                    try:
+                        fg.cerrar_pestana_especifica(page_obj, "cerrar_pestana_especifica", config.SCREENSHOT_DIR, f"Ventana: {page_obj.title() if page_obj.title() else page_obj.url}")
+                    except Exception as e:
+                        print(f"\n⚠️ Error al intentar cerrar pestaña '{page_obj.title() if page_obj else 'N/A'}': {e}")
+            
+            # Después de cerrar las pestañas nuevas, reasigna explícitamente fg.page a la página original.
+            fg.page = page_original
+
+        else:
+            print("\n⚠️ No se detectaron nuevas ventanas. El test continuará en la página original.")
+            raise ValueError("El botón 'Nueva Ventana' no abrió ninguna nueva ventana como se esperaba.")
+
+        # Paso 4: Después de cerrar las ventanas nuevas, fg.page debería haber vuelto a la página original.
+        print("\n--- Verificando que el foco haya regresado a la página original ---")
+        assert fg.page is page_original
+        print("\n✅ Foco regresado exitosamente a la página original.")
+
+        fg.validar_url_actual("testautomationpractice.blogspot.com/p/playwrightpractice.html")
+        fg.validar_elemento_visible(apl_original.botonConfirmationAlert, "validar_elemento_visible_boton_Confirmation_Alert", config.SCREENSHOT_DIR)
+        fg.verificar_confirmacion_on_dialog(apl_original.botonConfirmationAlert, "Press a button!", "accept", "verificar_confirmación_on_dialog_boton_Confirmation_Alert", config.SCREENSHOT_DIR)
+        fg.validar_elemento_visible(apl_original.mensajeConfirmacionDeAccion, "validar_elemento_visible_mensaje_Confirmación_DeAccion", config.SCREENSHOT_DIR)
+        fg.verificar_texto_contenido(apl_original.mensajeConfirmacionDeAccion, "You pressed OK!", "verificar_texto_contenido_mensaje_Confirmacion_De_Accion", config.SCREENSHOT_DIR)
+        fg.verificar_confirmacion_on_dialog(apl_original.botonConfirmationAlert, "Press a button!", "dismiss", "verificar_confirmación_dismiss_on_dialog_boton_Confirmation_Alert", config.SCREENSHOT_DIR)
+        fg.verificar_texto_contenido(apl_original.mensajeConfirmacionDeAccion, "You pressed Cancel!", "verificar_texto_contenido_mensaje_Confirmacion_De_Accion", config.SCREENSHOT_DIR)
+        
+
+        print("\n---------- Fin del escenario de prueba 'test_ver_nueva_ventana' ----------")
+
+    except Exception as e:
+        print(f"\n❌ El test falló: {e}")
+        # Solo toma la captura si fg.page sigue siendo una página válida.
+        # En este punto, fg.page ya debería ser page_original, que siempre está abierta
+        # a menos que haya un error más grave.
+        if fg.page and not fg.page.is_closed():
+            fg.tomar_captura(f"{nombre_base_test}_FALLO_FINAL", config.SCREENSHOT_DIR)
+        else:
+            print("⚠️ No se pudo tomar la captura de pantalla final porque la página de referencia está cerrada o no válida.")
+        raise # Re-lanzar la excepción para que el framework de testing la capture
