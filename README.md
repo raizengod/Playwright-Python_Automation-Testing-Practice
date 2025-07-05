@@ -12,7 +12,7 @@ Este repositorio forma parte de mi portafolio personal, mostrando mi capacidad p
 * **Lenguaje de Programación:** Desarrollado en **Python 3.13.5**.
 * **Gestión de Pruebas:** Organización de casos de prueba con **Pytest**.
 * **Generación de Informes:** Utilización de para visualización clara y detallada de los resultados de las pruebas.
-* **Cobertura Funcional:** Validación de formularios, tablas web, interacción con checkBox individuales, varios checkBox, carga de archivos, varios tipos de localizadores de elementos
+* **Cobertura Funcional:** Validación de formularios, tablas web, interacción con checkBox individuales, varios checkBox, carga de archivos, varios tipos de localizadores de elementos, acciones con el mouse, interacción con alertas, pop-up, nuevas ventanas y pestañas
 
 ## 🛠️ Tecnologías Utilizadas
 
@@ -54,12 +54,12 @@ Para ejecutar las pruebas localmente, sigue los siguientes pasos:
 
 1.  **Ejecuta las pruebas y genera los resultados de reporte:**
     ```bash
-    pytest practce\test\test_tablaDinamica.py -s -v --template=html1/index.html --report=reportes/html1/playwright_reporte.html
+    pytest practce\test\test_alertsAndPopups.py -s -v --template=html1/index.html --report=reportes/html1/playwright_reporte.html
     ```
 
 2.  **Ejecutar todas las pruebas con Pytest:**
     ```bash
-    pytest practce\test\test_getByRole.py practce\test\test_getByText.py practce\test\test_getByLabel.py practce\test\test_getByPlaceholder.py practce\test\test_getByAltText.py practce\test\test_getByTitle.py practce\test\test_getByTestId.py practce\test\test_cargarArchivo.py practce\test\test_tablaEstatica.py practce\test\test_tablaDinamica.py
+    pytest practce\test\test_getByRole.py practce\test\test_getByText.py practce\test\test_getByLabel.py practce\test\test_getByPlaceholder.py practce\test\test_getByAltText.py practce\test\test_getByTitle.py practce\test\test_getByTestId.py practce\test\test_cargarArchivo.py practce\test\test_tablaEstatica.py practce\test\test_tablaDinamica.py practce\test\test_checkBoxLista.py practce\test\test_alertsAndPopups.py practce\test\test_mouseAction.py
     ```
 
 3.  **Ejecutar pruebas específicas (ejemplo):**
@@ -69,7 +69,7 @@ Para ejecutar las pruebas localmente, sigue los siguientes pasos:
 
 4.  **Ejecutar todas las pruebas con reporte detallado y genera los resultados en reporte HTML:**:**
     ```bash
-    pytest practce\test\test_getByRole.py practce\test\test_getByText.py practce\test\test_getByLabel.py practce\test\test_getByPlaceholder.py practce\test\test_getByAltText.py practce\test\test_getByTitle.py practce\test\test_getByTestId.py practce\test\test_cargarArchivo.py practce\test\test_tablaEstatica.py practce\test\test_tablaDinamica.py -s -v --template=html1/index.html --report=reportes/html1/playwright_reporte.html
+    pytest practce\test\test_getByRole.py practce\test\test_getByText.py practce\test\test_getByLabel.py practce\test\test_getByPlaceholder.py practce\test\test_getByAltText.py practce\test\test_getByTitle.py practce\test\test_getByTestId.py practce\test\test_cargarArchivo.py practce\test\test_tablaEstatica.py practce\test\test_tablaDinamica.py practce\test\test_checkBoxLista.py practce\test\test_alertsAndPopups.py practce\test\test_mouseAction.py -s -v --template=html1/index.html --report=reportes/html1/playwright_reporte.html
     ```
 
 ## 📂 Estructura del Proyecto (Ejemplo)
