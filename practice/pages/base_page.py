@@ -2870,7 +2870,7 @@ class Funciones_Globales:
             self.tomar_captura(f"{nombre_base}_error_cambiar_foco_ventana", directorio)
             raise
 
-    #50- Función que ierra una Page object específica.
+    #50- Función que cierra una Page object específica.
     #Intenta cambiar el foco a la primera página disponible si la página cerrada era la actual.
     def cerrar_pestana_especifica(self, page_to_close: Page, nombre_base, directorio, nombre_paso=""):
         print(f"\n{nombre_paso}: Intentando cerrar la pestaña con URL: {page_to_close.url}")
@@ -2915,4 +2915,217 @@ class Funciones_Globales:
             )
             print(error_msg)
             self.tomar_captura(f"{nombre_base}_error_cerrar_pestana", directorio)
+            raise
+        
+    #51- Función para realizar una operación de "Drag and Drop" de un elemento a otro.
+    def realizar_drag_and_drop(self, elemento_origen, elemento_destino, nombre_base, directorio, nombre_paso: str = ""):
+        print(f"\n{nombre_paso}: Intentando realizar 'Drag and Drop' de '{elemento_origen}' a '{elemento_destino}'")
+        
+        # Opcional: imprimir tipos para depuración (puedes eliminarlos en producción)
+        # print(f"Tipo de elemento_origen: {type(elemento_origen)}")
+        # print(f"Tipo de elemento_destino: {type(elemento_destino)}")
+
+        # 1. Verificar que ambos elementos estén visibles y habilitados antes de interactuar (pre-verificación)
+        try:
+            if not elemento_origen.is_visible():
+                raise ValueError(f"\n❌El elemento de origen '{elemento_origen}' no está visible.")
+            if not elemento_origen.is_enabled():
+                raise ValueError(f"\n❌El elemento de origen '{elemento_origen}' no está habilitado.")
+            if not elemento_destino.is_visible():
+                raise ValueError(f"\n❌El elemento de destino '{elemento_destino}' no está visible.")
+            if not elemento_destino.is_enabled():
+                raise ValueError(f"\n❌El elemento de destino '{elemento_destino}' no está habilitado.")
+        except ValueError as e:
+            error_msg = (
+                f"\n❌ FALLO (Pre-validación) - {nombre_paso}: {e}\n"
+                f"Asegúrese de que los elementos de origen y destino sean interactuables antes de intentar Drag and Drop."
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_pre_validacion_drag_and_drop", directorio)
+            raise # Re-lanza la excepción si falla la validación inicial
+
+        # --- Intento 1: Usar el método .drag_and_drop() ---
+        try:
+            print(f"\n🔄 Intentando 'Drag and Drop' con el método estándar de Playwright...")
+            elemento_origen.drag_and_drop(elemento_destino)
+            print(f"\n✅ 'Drag and Drop' realizado exitosamente con el método estándar.")
+            self.tomar_captura(f"{nombre_base}_drag_and_drop_exitoso", directorio)
+            return # Si funciona, salimos de la función
+
+        except AttributeError as e:
+            # Captura específicamente el AttributeError para intentar el método manual
+            print(f"\n⚠️ Advertencia: El método directo '.drag_and_drop()' falló con AttributeError: {e}")
+            print("\n🔄 Intentando 'Drag and Drop' con método manual de Playwright (mouse.hover, mouse.down, mouse.up)...")
+            self.tomar_captura(f"{nombre_base}_fallo_directo_intentando_manual", directorio)
+            self._realizar_drag_and_drop_manual(elemento_origen, elemento_destino, nombre_base, directorio, nombre_paso)
+            print(f"\n✅ 'Drag and Drop' realizado exitosamente con el método manual.")
+
+        except Error as e: # Otros errores específicos de Playwright para el método directo
+            print(f"\n⚠️ Advertencia: El método directo '.drag_and_drop()' falló con error de Playwright: {e}")
+            print("\n🔄 Intentando 'Drag and Drop' con método manual de Playwright (mouse.hover, mouse.down, mouse.up)...")
+            self.tomar_captura(f"{nombre_base}_fallo_directo_intentando_manual", directorio)
+            self._realizar_drag_and_drop_manual(elemento_origen, elemento_destino, nombre_base, directorio, nombre_paso)
+            print(f"\n✅ 'Drag and Drop' realizado exitosamente con el método manual.")
+
+        except Exception as e: # Cualquier otro error inesperado en el primer intento
+            error_msg = (
+                f"\n❌ FALLO (Inesperado - Intento 1) - {nombre_paso}: Ocurrió un error inesperado al intentar realizar 'Drag and Drop' con el método estándar.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_inesperado_intento1_drag_and_drop", directorio)
+            raise # Si falla aquí, y no es el AttributeError, es un error más serio, lo re-lanzamos.
+
+    def _realizar_drag_and_drop_manual(self, elemento_origen, elemento_destino, nombre_base, directorio, nombre_paso):
+        """
+        Método privado para realizar Drag and Drop usando las acciones de ratón de bajo nivel.
+        Se llama como fallback si el método drag_and_drop() falla.
+        """
+        try:
+            elemento_origen.hover() # Mueve el ratón sobre el elemento de origen
+            self.page.mouse.down() # Presiona el botón izquierdo del ratón
+            time.sleep(0.5) # Pequeña pausa para simular el arrastre visual
+            elemento_destino.hover() # Mueve el ratón sobre el elemento de destino
+            time.sleep(0.5) # Pequeña pausa antes de soltar
+            self.page.mouse.up() # Suelta el botón izquierdo del ratón
+            # No se necesita toma de captura aquí, ya se hizo al inicio del fallback
+            # o se hará al final si todo el proceso es exitoso.
+
+        except Error as e:
+            error_msg = (
+                f"\n❌ FALLO (Playwright Error - Manual) - {nombre_paso}: Ocurrió un error de Playwright al intentar realizar 'Drag and Drop' manualmente.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_manual_drag_and_drop_playwright", directorio)
+            raise
+
+        except Exception as e:
+            error_msg = (
+                f"\n❌ FALLO (Inesperado - Manual) - {nombre_paso}: Ocurrió un error inesperado al intentar realizar 'Drag and Drop' manualmente.\n"
+                f"Detalles: {e}"
+            )
+            print(error_msg)
+            self.tomar_captura(f"{nombre_base}_error_inesperado_manual_drag_and_drop", directorio)
+            raise
+        
+    #52- Función para mover sliders de rango (con dos pulgares)
+    def mover_slider_rango(self, pulgar_izquierdo_locator, pulgar_derecho_locator, barra_slider_locator,
+                           porcentaje_destino_izquierdo: float, porcentaje_destino_derecho: float,
+                           nombre_base, directorio, nombre_paso= ""):
+        print(f"\n{nombre_paso}: Intentando mover el slider de rango. Pulgar Izquierdo a {porcentaje_destino_izquierdo*100:.0f}%, Pulgar Derecho a {porcentaje_destino_derecho*100:.0f}%")
+
+        # Margen de error para la comparación de posiciones, en píxeles.
+        # Un valor pequeño como 2 o 3 píxeles es razonable.
+        TOLERANCIA_PIXELES = 3
+
+        # 1. Validaciones iniciales de porcentajes
+        if not (0.0 <= porcentaje_destino_izquierdo <= 1.0) or not (0.0 <= porcentaje_destino_derecho <= 1.0):
+            raise ValueError("\n❌ Los porcentajes de destino para ambos pulgares deben ser valores flotantes entre 0.0 (0%) y 1.0 (100%).")
+        
+        # Validación de negocio: el porcentaje izquierdo no puede ser mayor que el derecho
+        if porcentaje_destino_izquierdo > porcentaje_destino_derecho:
+            raise ValueError("\n❌ El porcentaje del pulgar izquierdo no puede ser mayor que el del pulgar derecho.")
+
+        localizadores = {
+            "pulgar izquierdo": pulgar_izquierdo_locator,
+            "pulgar derecho": pulgar_derecho_locator,
+            "barra del slider": barra_slider_locator
+        }
+
+        try:
+            barra_slider_locator.highlight() # Esto es para visualización en el navegador durante la ejecución
+            
+            # 2. Verificar visibilidad y habilitación de todos los elementos
+            for nombre_elemento, localizador_elemento in localizadores.items():
+                if not localizador_elemento.is_visible():
+                    raise ValueError(f"\n❌ El elemento '{nombre_elemento}' ('{localizador_elemento.selector}') no está visible.")
+                if not localizador_elemento.is_enabled():
+                    raise ValueError(f"\n❌El elemento '{nombre_elemento}' ('{localizador_elemento.selector}') no está habilitado.")
+            
+            # Obtener el bounding box de la barra del slider (esencial para el cálculo)
+            caja_barra = barra_slider_locator.bounding_box()
+            if not caja_barra:
+                raise RuntimeError(f"\n❌ No se pudo obtener el bounding box de la barra del slider '{barra_slider_locator.selector}'.")
+
+            inicio_x_barra = caja_barra['x']
+            ancho_barra = caja_barra['width']
+            
+            # --- Mover Pulgar Izquierdo (Mínimo) ---
+            caja_pulgar_izquierdo = pulgar_izquierdo_locator.bounding_box()
+            if not caja_pulgar_izquierdo:
+                raise RuntimeError(f"\n❌ No se pudo obtener el bounding box del pulgar izquierdo '{pulgar_izquierdo_locator.selector}'.")
+
+            posicion_x_destino_izquierdo = inicio_x_barra + (ancho_barra * porcentaje_destino_izquierdo)
+            posicion_y_destino = caja_pulgar_izquierdo['y'] + (caja_pulgar_izquierdo['height'] / 2) # Y central del pulgar
+
+            # Calcular la posición X central actual del pulgar izquierdo
+            posicion_x_actual_izquierdo = caja_pulgar_izquierdo['x'] + (caja_pulgar_izquierdo['width'] / 2)
+
+            # Verificar si el pulgar izquierdo ya está en la posición deseada
+            if abs(posicion_x_actual_izquierdo - posicion_x_destino_izquierdo) < TOLERANCIA_PIXELES:
+                print(f"\n  > Pulgar izquierdo ya se encuentra en la posición deseada ({porcentaje_destino_izquierdo*100:.0f}%). No se requiere movimiento.")
+            else:
+                print(f"\n  > Moviendo pulgar izquierdo de X={posicion_x_actual_izquierdo:.0f} a X={posicion_x_destino_izquierdo:.0f} ({porcentaje_destino_izquierdo*100:.0f}%)...")
+                self.page.mouse.move(posicion_x_actual_izquierdo, posicion_y_destino) # Mover al centro del pulgar actual
+                self.page.mouse.down() # Presionar
+                time.sleep(0.2)
+                self.page.mouse.move(posicion_x_destino_izquierdo, posicion_y_destino, steps=10) # Arrastrar
+                time.sleep(0.2)
+                self.page.mouse.up() # Soltar
+                print(f"\n  > Pulgar izquierdo movido a X={posicion_x_destino_izquierdo:.0f}.")
+            time.sleep(0.5) # Pausa adicional después de procesar el primer pulgar
+
+            # --- Mover Pulgar Derecho (Máximo) ---
+            caja_pulgar_derecho = pulgar_derecho_locator.bounding_box()
+            if not caja_pulgar_derecho:
+                raise RuntimeError(f"\n❌ No se pudo obtener el bounding box del pulgar derecho '{pulgar_derecho_locator.selector}'.")
+
+            posicion_x_destino_derecho = inicio_x_barra + (ancho_barra * porcentaje_destino_derecho)
+            posicion_y_destino_derecho = caja_pulgar_derecho['y'] + (caja_pulgar_derecho['height'] / 2) # Y central del pulgar
+
+            # Calcular la posición X central actual del pulgar derecho
+            posicion_x_actual_derecho = caja_pulgar_derecho['x'] + (caja_pulgar_derecho['width'] / 2)
+
+            # Verificar si el pulgar derecho ya está en la posición deseada
+            if abs(posicion_x_actual_derecho - posicion_x_destino_derecho) < TOLERANCIA_PIXELES:
+                print(f"\n  > Pulgar derecho ya se encuentra en la posición deseada ({porcentaje_destino_derecho*100:.0f}%). No se requiere movimiento.")
+            else:
+                print(f"\n  > Moviendo pulgar derecho de X={posicion_x_actual_derecho:.0f} a X={posicion_x_destino_derecho:.0f} ({porcentaje_destino_derecho*100:.0f}%)...")
+                # Siempre movemos el ratón a la posición actual del pulgar antes de "down" para asegurar el arrastre correcto
+                self.page.mouse.move(posicion_x_actual_derecho, posicion_y_destino_derecho)
+                self.page.mouse.down() # Presionar
+                time.sleep(0.2)
+                self.page.mouse.move(posicion_x_destino_derecho, posicion_y_destino_derecho, steps=10) # Arrastrar
+                time.sleep(0.2)
+                self.page.mouse.up() # Soltar
+                print(f"\n  > Pulgar derecho movido a X={posicion_x_destino_derecho:.0f}.")
+
+            print(f"\n✅ Slider de rango procesado exitosamente. Izquierdo a {porcentaje_destino_izquierdo*100:.0f}%, Derecho a {porcentaje_destino_derecho*100:.0f}%.")
+            self.tomar_captura(f"{nombre_base}_slider_rango_procesado_{porcentaje_destino_izquierdo*100:.0f}_{porcentaje_destino_derecho*100:.0f}pc", directorio)
+
+        except ValueError as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Validación) - {nombre_paso}: {e}\n"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_error_validacion_slider_rango", directorio)
+            raise
+
+        except Error as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Error de Playwright) - {nombre_paso}: Ocurrió un error de Playwright al intentar mover el slider de rango.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_error_playwright_slider_rango", directorio)
+            raise
+
+        except Exception as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Inesperado) - {nombre_paso}: Ocurrió un error inesperado al intentar mover el slider de rango.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_error_inesperado_slider_rango", directorio)
             raise

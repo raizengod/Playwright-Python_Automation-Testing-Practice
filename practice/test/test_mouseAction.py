@@ -83,5 +83,50 @@ def test_hacer_Drag_and_Drop(set_up_mouseAction):
     mal= MouseActionsLocatorsPage(page)
     
     fg.scroll_pagina(0, 600)
-    fg.esperar_fijo(5)
+    fg.verificar_texto_contenido(mal.tituloDragAndDrop,"Drag and Drop", "verificar_texto_contenido_titulo_Drag_And_Drop", config.SCREENSHOT_DIR)
+    fg.verificar_texto_contenido(mal.objetoDragMe, "Drag me to my target", "verificar_texto_contenido_objeto_Drag_Me", config.SCREENSHOT_DIR)
+    fg.verificar_texto_contenido(mal.objetoDropHere, "Drop here", "verificar_texto_contenido_objeto_Drop_here", config.SCREENSHOT_DIR)
     
+    fg.realizar_drag_and_drop(mal.objetoDragMe, mal.objetoDropHere, "realizar_drag_and_drop", config. SCREENSHOT_DIR)
+    
+def test_hacer_slider(set_up_mouseAction):
+    page= set_up_mouseAction
+    
+    #IMPORTANTE: Creamos un objeto de tipo función 'Funciones_Globales'
+    fg= Funciones_Globales(page) #Este page va ser enviado a la función __init__ en el archivo FuncionesPOM
+    #IMPORTANTE: Creamos un objeto de tipo función 'MouseActionsLocatorsPage'
+    mal= MouseActionsLocatorsPage(page)
+    
+    fg.validar_elemento_visible(mal.tituloSlider, "validar_elemento_visible_titulo_slider", config.SCREENSHOT_DIR)
+    fg.validar_elemento_visible(mal.subTituloPriceSlider, "validar_elemento_visible_sub_titulo_slider", config.SCREENSHOT_DIR)
+    fg.validar_elemento_visible(mal.rangoPrecio, "validar_elemento_visible_rango_precio", config.SCREENSHOT_DIR)
+    
+    fg.mover_slider_rango(mal.puntoInicioSlider, mal.puntoFinalSlider, mal.barraSlider, 0.1, 0.5, "mover_slider_rango", config.SCREENSHOT_DIR)
+    
+    fg.verificar_valor_campo(mal.rangoPrecio, "$49 - $248", "verificar_valor_campo_rango_Precio", config.SCREENSHOT_DIR)
+    
+    fg.mover_slider_rango(mal.puntoInicioSlider, mal.puntoFinalSlider, mal.barraSlider, 0.13, 1.0, "mover_slider_rango", config.SCREENSHOT_DIR)
+    
+    fg.verificar_valor_campo(mal.rangoPrecio, "$64 - $498", "verificar_valor_campo_rango_Precio", config.SCREENSHOT_DIR)
+    
+    fg.mover_slider_rango(mal.puntoInicioSlider, mal.puntoFinalSlider, mal.barraSlider, 0.0, 1.0, "mover_slider_rango", config.SCREENSHOT_DIR)
+    
+    fg.verificar_valor_campo(mal.rangoPrecio, "$0 - $498", "verificar_valor_campo_rango_Precio", config.SCREENSHOT_DIR)
+    
+    fg.mover_slider_rango(mal.puntoInicioSlider, mal.puntoFinalSlider, mal.barraSlider, 0.4, 0.4, "mover_slider_rango", config.SCREENSHOT_DIR)
+    
+    fg.verificar_valor_campo(mal.rangoPrecio, "$198 - $198", "verificar_valor_campo_rango_Precio", config.SCREENSHOT_DIR)
+    
+    fg.mover_slider_rango(mal.puntoInicioSlider, mal.puntoFinalSlider, mal.barraSlider, 0.4, 0.7, "mover_slider_rango", config.SCREENSHOT_DIR)
+    
+    fg.verificar_valor_campo(mal.rangoPrecio, "$198 - $348", "verificar_valor_campo_rango_Precio", config.SCREENSHOT_DIR)
+    
+    fg.esperar_fijo(3)
+    
+def test_hacer_slider(set_up_mouseAction):
+    page= set_up_mouseAction
+    
+    #IMPORTANTE: Creamos un objeto de tipo función 'Funciones_Globales'
+    fg= Funciones_Globales(page) #Este page va ser enviado a la función __init__ en el archivo FuncionesPOM
+    #IMPORTANTE: Creamos un objeto de tipo función 'MouseActionsLocatorsPage'
+    mal= MouseActionsLocatorsPage(page)
