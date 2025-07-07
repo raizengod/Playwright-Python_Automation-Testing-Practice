@@ -123,10 +123,17 @@ def test_hacer_slider(set_up_mouseAction):
     
     fg.esperar_fijo(3)
     
-def test_hacer_slider(set_up_mouseAction):
+@pytest.mark.xfail(reason="Las opciones dropDownList tienen otro comportamiento para interactuar")    
+def test_interactuar_con_comboBox(set_up_mouseAction):
     page= set_up_mouseAction
     
     #IMPORTANTE: Creamos un objeto de tipo función 'Funciones_Globales'
     fg= Funciones_Globales(page) #Este page va ser enviado a la función __init__ en el archivo FuncionesPOM
     #IMPORTANTE: Creamos un objeto de tipo función 'MouseActionsLocatorsPage'
     mal= MouseActionsLocatorsPage(page)
+    
+    fg.scroll_pagina(0, 400)
+    
+    fg.validar_elemento_visible(mal.tituloComboBox, "validar_elemento_visible", config.SCREENSHOT_DIR)
+    fg.obtener_valores_dropdown(mal.comboBox, "verificar_opciones_combobox_comboBox", config.SCREENSHOT_DIR)
+    fg.seleccionar_opcion_por_label(mal.comboBox, "Item 30", "seleccionar_opcion_por_valor_combo_box", config.SCREENSHOT_DIR)

@@ -99,3 +99,13 @@ class MouseActionsLocatorsPage:
     @property
     def rangoPrecio(self):
         return self.page.locator("#HTML7").get_by_role("textbox", name="Price range:")
+    
+    #Selector de titulo comboBox
+    @property
+    def tituloComboBox(self):
+        return self.page.locator("#HTML17").get_by_role("heading", name="Scrolling DropDown")
+    
+    #Selector de comboBox
+    @property
+    def comboBox(self):
+        return self.page.locator("//*[@id='HTML17']").get_by_role("textbox", name="Select an item")

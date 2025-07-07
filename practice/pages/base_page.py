@@ -5,7 +5,7 @@ import random
 from playwright.sync_api import Page, expect, Error , TimeoutError, sync_playwright, Response, Dialog 
 from datetime import datetime
 import os
-from typing import Union, List
+from typing import Union, List, Dict
 
 class Funciones_Globales:
     
@@ -1089,50 +1089,77 @@ class Funciones_Globales:
     #30- Función para extrae y retorna el valor de un elemento dado su selector.
     def obtener_valor_elemento(self, selector, nombre_base, directorio, tiempo= 0.5) -> str | None:
         print(f"\nExtrayendo valor del elemento '{selector}'")
+        valor_extraido = None
         try:
             selector.highlight()
             self.tomar_captura(f"{nombre_base}_antes_extraccion_valor", directorio)
 
-            valor_extraido = None
+            # Usamos expect para asegurar que el elemento es visible y habilitado antes de intentar extraer
+            expect(selector).to_be_visible(timeout=5000)
+            expect(selector).to_be_enabled(timeout=5000)
 
-            # Intentar obtener el valor de diferentes maneras
+            # Priorizamos input_value para campos de formulario (incluyendo <select>)
             try:
-                # 1. Intentar obtener el 'value' si es un campo de entrada
+                # Playwright's input_value() es lo que necesitas para <select> 'value'
                 valor_extraido = selector.input_value(timeout=1000)
-                print(f"\n✅ Valor extraído (input_value) de '{selector}': '{valor_extraido}'")
-            except Exception:
-                # 2. Si no es un campo de entrada, intentar obtener el 'textContent'
+                print(f"\n  > Valor extraído (input_value) de '{selector}': '{valor_extraido}'")
+            except Error: # Usar Error para errores específicos de Playwright (e.g., no es un elemento de entrada)
+                # Si falla input_value, intentamos con text_content o inner_text para otros elementos
                 try:
                     valor_extraido = selector.text_content(timeout=1000)
-                    print(f"\n✅ Valor extraído (text_content) de '{selector}': '{valor_extraido}'")
-                except Exception:
-                    # 3. Si text_content falla, intentar obtener el 'innerText'
-                    try:
+                    if valor_extraido is not None:
+                        # Si text_content devuelve solo espacios en blanco o es vacío,
+                        # intentamos inner_text (que a veces es más preciso para texto visible)
+                        if valor_extraido.strip() == "":
+                            valor_extraido = selector.inner_text(timeout=1000)
+                            print(f"\n  > Valor extraído (inner_text) de '{selector}': '{valor_extraido}'")
+                        else:
+                            print(f"\n  > Valor extraído (text_content) de '{selector}': '{valor_extraido}'")
+                    else:
                         valor_extraido = selector.inner_text(timeout=1000)
-                        print(f"\n✅ Valor extraído (inner_text) de '{selector}': '{valor_extraido}'")
-                    except Exception:
-                        # 4. Finalmente, intentar obtener un atributo común como 'title' o 'alt'
-                        # Esto es más general y puede requerir especificar el atributo.
-                        # Para esta función, nos centraremos en texto o valor de input.
-                        print(f"\n⚠️ No se pudo obtener el valor como input_value, text_content o inner_text para '{selector}'.")
+                        print(f"\n  > Valor extraído (inner_text) de '{selector}': '{valor_extraido}'")
+                except Error:
+                    print(f"\n  > No se pudo extraer input_value, text_content ni inner_text de '{selector}'.")
+                    valor_extraido = None # Asegurarse de que sea None si todo falla
 
             if valor_extraido is not None:
-                print(f"\n✅ Se obtuvo el valor del elemento '{selector}': '{valor_extraido}'")
-                time.sleep(tiempo)
-                return valor_extraido.strip() if isinstance(valor_extraido, str) else valor_extraido
+                # Stripping whitespace for cleaner results if it's a string
+                valor_final = valor_extraido.strip() if isinstance(valor_extraido, str) else valor_extraido
+                print(f"\n✅ Valor final obtenido del elemento '{selector}': '{valor_final}'")
+                self.tomar_captura(f"{nombre_base}_valor_extraido_exito", directorio)
+                return valor_final
             else:
                 print(f"\n❌ No se pudo extraer ningún valor significativo del elemento '{selector}'.")
                 self.tomar_captura(f"{nombre_base}_fallo_extraccion_valor_no_encontrado", directorio)
-                time.sleep(tiempo)
                 return None
 
+        except TimeoutError as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Timeout): El elemento '{selector}' "
+                f"no se volvió visible/habilitado a tiempo para extraer su valor.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_fallo_timeout_extraccion_valor", directorio)
+            raise AssertionError(f"\nElemento no disponible para extracción de valor: {selector}") from e
+
+        except Error as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Error de Playwright): Ocurrió un error de Playwright al intentar extraer el valor de '{selector}'.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_fallo_playwright_error_extraccion_valor", directorio)
+            raise AssertionError(f"\nError de Playwright al extraer valor: {selector}") from e
+
         except Exception as e:
-            print(f"\n❌ Error al intentar extraer el valor del elemento '{selector}': {e}")
-            self.tomar_captura(f"{nombre_base}_error_extraccion_valor", directorio)
-            # Dependiendo de la política de tu framework, puedes relanzar la excepción
-            # o retornar None para indicar que la operación falló.
-            # raise # Descomentar para relanzar la excepción
-            return None
+            mensaje_error = (
+                f"\n❌ FALLO (Error Inesperado): Ocurrió un error desconocido al intentar extraer el valor de '{selector}'.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_fallo_inesperado_extraccion_valor", directorio)
+            raise AssertionError(f"\nError inesperado al extraer valor: {selector}") from e
     
     #31- Función para verificar que los encabezados de las columnas de una tabla sean correctos y estén presentes.
     def verificar_encabezados_tabla(self, selector, encabezados_esperados: list[str], nombre_base, directorio, tiempo= 1) -> bool:
@@ -3129,3 +3156,397 @@ class Funciones_Globales:
             print(mensaje_error)
             self.tomar_captura(f"{nombre_base}_error_inesperado_slider_rango", directorio)
             raise
+        
+    #53- Función para seleccionar una opción en un ComboBox (elemento <select>) por su atributo 'value'.
+    def seleccionar_opcion_por_valor(self, combobox_locator, valor_a_seleccionar, nombre_base, directorio):
+        print (f"Seleccionando '{valor_a_seleccionar}' en ComboBox '{combobox_locator}'")
+
+        try:
+            # 1. Asegurarse de que el ComboBox esté visible y habilitado
+            expect(combobox_locator).to_be_visible(timeout=5000) # Espera 5 segundos
+            combobox_locator.highlight() # Para visualización durante la ejecución
+            expect(combobox_locator).to_be_enabled(timeout=5000) # Espera 5 segundos
+            
+            # 2. Tomar captura antes de la selección
+            self.tomar_captura(f"{nombre_base}_antes_de_seleccionar_combo", directorio)
+
+            # 3. Seleccionar la opción por su valor
+            # El método select_option() espera automáticamente a que el elemento
+            # sea visible, habilitado y con la opción disponible.
+            combobox_locator.select_option(valor_a_seleccionar)
+            print(f"\n✅ Opción '{valor_a_seleccionar}' seleccionada exitosamente en '{combobox_locator}'.")
+
+            # 4. Verificar que la opción fue seleccionada correctamente
+            # Usamos to_have_value() para asegurar que el valor del select cambió al esperado
+            expect(combobox_locator).to_have_value(valor_a_seleccionar, timeout=5000)
+            print(f"\n✅ ComboBox '{combobox_locator}' verificado con valor '{valor_a_seleccionar}'.")
+
+            # 5. Tomar captura después de la selección exitosa
+            self.tomar_captura(f"{nombre_base}_despues_de_seleccionar_combo_exito", directorio)
+
+        except TimeoutError as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Timeout): El ComboBox '{combobox_locator}' "
+                f"no se volvió visible/habilitado o la opción '{valor_a_seleccionar}' no se pudo seleccionar a tiempo.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_fallo_timeout_combo", directorio)
+            raise AssertionError(f"\n❌ No se pudo seleccionar opción '{valor_a_seleccionar}' en ComboBox: {combobox_locator}") from e
+
+        except Error as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Error de Playwright): Ocurrió un error al intentar seleccionar la opción '{valor_a_seleccionar}' en '{combobox_locator}'.\n"
+                f"Posibles causas: Selector inválido, elemento no es un <select>, opción no existe.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_fallo_playwright_error_combo", directorio)
+            raise AssertionError(f"\n❌ Error de Playwright al seleccionar ComboBox: {combobox_locator}") from e
+
+        except Exception as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Error Inesperado): Ocurrió un error desconocido al manejar el ComboBox '{combobox_locator}'.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_fallo_inesperado_combo", directorio)
+            raise AssertionError(f"\n❌ Error inesperado con ComboBox: {combobox_locator}") from e
+        
+    #54- Función para seleccionar una opción en un ComboBox (elemento <select>) por su texto visible (label).
+    def seleccionar_opcion_por_label(self, combobox_locator, label_a_seleccionar, nombre_base, directorio, tiempo= 1):
+        # Si nombre_paso no se proporciona, usa el selector del locator para mayor claridad en el log
+        print(f"Seleccionando '{label_a_seleccionar}' en ComboBox '{combobox_locator}' por label")
+
+        try:
+            # 1. Asegurarse de que el ComboBox esté visible y habilitado
+            expect(combobox_locator).to_be_visible(timeout=5000) # Espera 5 segundos
+            combobox_locator.highlight() # Para visualización durante la ejecución
+            expect(combobox_locator).to_be_enabled(timeout=5000) # Espera 5 segundos
+            
+            # 2. Tomar captura antes de la selección
+            self.tomar_captura(f"{nombre_base}_antes_de_seleccionar_combo_label", directorio)
+
+            # 3. Seleccionar la opción por su texto visible (label)
+            # El método select_option() espera automáticamente a que el elemento
+            # sea visible, habilitado y con la opción disponible.
+            combobox_locator.select_option(label_a_seleccionar)
+            print(f"\n✅ Opción '{label_a_seleccionar}' seleccionada exitosamente en '{combobox_locator}' por label.")
+
+            # 4. Verificar que la opción fue seleccionada correctamente
+            # Usamos to_have_text() para asegurar que el texto visible del select cambió al esperado.
+            # Ojo: to_have_text() verifica el texto del elemento <select> en sí, que a menudo
+            # es el texto de la opción seleccionada. Si el ComboBox es complejo (no un <select> nativo),
+            # podrías necesitar verificar el texto de un elemento adyacente que muestra la selección.
+            expect(combobox_locator).to_have_text(label_a_seleccionar, timeout=5000)
+            print(f"\n✅ ComboBox '{combobox_locator}' verificado con texto seleccionado '{label_a_seleccionar}'.")
+
+            # 5. Tomar captura después de la selección exitosa
+            self.tomar_captura(f"{nombre_base}_despues_de_seleccionar_combo_label_exito", directorio)
+
+        except TimeoutError as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Timeout): El ComboBox '{combobox_locator}' "
+                f"no se volvió visible/habilitado o la opción '{label_a_seleccionar}' no se pudo seleccionar a tiempo.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_fallo_timeout_combo_label", directorio)
+            raise AssertionError(f"\n❌ No se pudo seleccionar opción '{label_a_seleccionar}' en ComboBox por label: {combobox_locator}") from e
+
+        except Error as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Error de Playwright): Ocurrió un error al intentar seleccionar la opción '{label_a_seleccionar}' en '{combobox_locator}'.\n"
+                f"Posibles causas: Selector inválido, elemento no es un <select>, opción con ese label no existe.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_fallo_playwright_error_combo_label", directorio)
+            raise AssertionError(f"\n❌ Error de Playwright al seleccionar ComboBox por label: {combobox_locator}") from e
+
+        except Exception as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Error Inesperado): Ocurrió un error desconocido al manejar el ComboBox '{combobox_locator}'.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_fallo_inesperado_combo_label", directorio)
+            raise AssertionError(f"\n❌ Error inesperado con ComboBox por label: {combobox_locator}") from e
+        
+    #55- Función para presionar la tecla TAB en el teclado
+    def Tab_Pess(self, tiempo= 0.5):
+        self.page.keyboard.press("Tab")
+        time.sleep(tiempo)
+        
+    #56- Función optimizada para seleccionar múltiples opciones en un ComboBox múltiple.
+    def seleccionar_multiples_opciones_combo(self, combobox_multiple_locator, valores_a_seleccionar: list[str], nombre_base, directorio):
+        print(f"\nSeleccionando múltiples opciones {valores_a_seleccionar} en ComboBox '{combobox_multiple_locator.selector}'")
+
+        try:
+            # 1. Asegurarse de que el ComboBox esté visible y habilitado
+            expect(combobox_multiple_locator).to_be_visible(timeout=5000) # Espera 5 segundos
+            combobox_multiple_locator.highlight() # Para visualización durante la ejecución
+            expect(combobox_multiple_locator).to_be_enabled(timeout=5000) # Espera 5 segundos
+            
+            # Verificar que sea un select múltiple, si es crítico
+            # Opcional: Esto puede no ser necesario si tu locator ya apunta específicamente a un 'select[multiple]'
+            # expect(combobox_multiple_locator).to_have_attribute("multiple", "") 
+            # print("  > ComboBox verificado como select múltiple.")
+
+            # 2. Tomar captura antes de la selección
+            self.tomar_captura(f"{nombre_base}_antes_de_seleccionar_multi_combo", directorio)
+
+            # 3. Seleccionar las opciones
+            # Playwright's select_option() para listas maneja tanto valores como labels.
+            # Pasando una lista de strings seleccionará las opciones correspondientes.
+            combobox_multiple_locator.select_option(valores_a_seleccionar)
+            print(f"\n✅ Opciones '{valores_a_seleccionar}' seleccionadas exitosamente en '{combobox_multiple_locator}'.")
+
+            # 4. Verificar que las opciones fueron seleccionadas correctamente
+            # input_value() para un select múltiple retorna una lista de los valores seleccionados.
+            expect(combobox_multiple_locator).to_have_values(valores_a_seleccionar, timeout=5000)
+            print(f"\n✅ ComboBox '{combobox_multiple_locator}' verificado con valores seleccionados: {valores_a_seleccionar}.")
+
+            # 5. Tomar captura después de la selección exitosa
+            self.tomar_captura(f"{nombre_base}_despues_de_seleccionar_multi_combo_exito", directorio)
+
+        except TimeoutError as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Timeout): El ComboBox múltiple '{combobox_multiple_locator}' "
+                f"no se volvió visible/habilitado o las opciones '{valores_a_seleccionar}' no se pudieron seleccionar a tiempo.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_fallo_timeout_multi_combo", directorio)
+            raise AssertionError(f"\nNo se pudieron seleccionar opciones '{valores_a_seleccionar}' en ComboBox múltiple: {combobox_multiple_locator}") from e
+
+        except Error as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Error de Playwright): Ocurrió un error al intentar seleccionar las opciones '{valores_a_seleccionar}' en '{combobox_multiple_locator}'.\n"
+                f"Posibles causas: Selector inválido, elemento no es un <select multiple>, alguna opción no existe.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_fallo_playwright_error_multi_combo", directorio)
+            raise AssertionError(f"\n ❌Error de Playwright al seleccionar ComboBox múltiple: {combobox_multiple_locator}") from e
+
+        except Exception as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Error Inesperado): Ocurrió un error desconocido al manejar el ComboBox múltiple '{combobox_multiple_locator}'.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_fallo_inesperado_multi_combo", directorio)
+            raise AssertionError(f"\n❌ Error inesperado con ComboBox múltiple: {combobox_multiple_locator}") from e
+        
+    #57 Función que obtiene y imprime los valores y el texto de todas las opciones en un dropdown list.
+    def obtener_valores_dropdown(self, selector_dropdown, nombre_base, directorio, timeout_ms: int = 5000) -> List[Dict[str, str]] | None:
+        print(f"\n--- Extrayendo valores del dropdown '{selector_dropdown}' ---")
+        valores_opciones: List[Dict[str, str]] = []
+
+        try:
+            # 1. Asegurar que el dropdown es visible y habilitado
+            selector_dropdown.highlight()
+            self.tomar_captura(f"{nombre_base}_dropdown_antes_extraccion", directorio)
+
+            print(f"\n⏳ Esperando que el dropdown '{selector_dropdown}' sea visible y habilitado...")
+            expect(selector_dropdown).to_be_visible(timeout=timeout_ms)
+            expect(selector_dropdown).to_be_enabled(timeout=timeout_ms)
+            print(f"\n✅ Dropdown '{selector_dropdown}' es visible y habilitado.")
+
+            # 2. Obtener todas las opciones dentro del dropdown
+            # Usamos `all()` para obtener una lista de locators para cada opción
+            option_locators = selector_dropdown.locator("option").all()
+
+            if not option_locators:
+                print(f"\n⚠️ No se encontraron opciones dentro del dropdown '{selector_dropdown}'.")
+                self.tomar_captura(f"{nombre_base}_dropdown_sin_opciones", directorio)
+                return None
+
+            print(f"\nEncontradas {len(option_locators)} opciones para '{selector_dropdown}':")
+
+            # 3. Iterar sobre cada opción y extraer su 'value' y 'text_content'
+            for i, option_locator in enumerate(option_locators):
+                value = option_locator.get_attribute("value")
+                text = option_locator.text_content()
+
+                # Limpieza de espacios en blanco
+                clean_value = value.strip() if value else ""
+                clean_text = text.strip() if text else ""
+
+                valores_opciones.append({'value': clean_value, 'text': clean_text})
+                print(f"  Option {i+1}: Value='{clean_value}', Text='{clean_text}'")
+
+            print(f"\n✅ Valores obtenidos exitosamente del dropdown '{selector_dropdown}'.")
+            self.tomar_captura(f"{nombre_base}_dropdown_valores_extraidos", directorio)
+            return valores_opciones
+
+        except TimeoutError as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Timeout): El dropdown '{selector_dropdown}' "
+                f"no se volvió visible/habilitado o sus opciones no cargaron a tiempo.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_dropdown_fallo_timeout", directorio)
+            raise AssertionError(f"\nDropdown no disponible: {selector_dropdown}") from e
+
+        except Error as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Error de Playwright): Ocurrió un error de Playwright al intentar obtener los valores del dropdown '{selector_dropdown}'.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_dropdown_fallo_playwright_error", directorio)
+            raise AssertionError(f"\nError de Playwright al extraer valores del dropdown: {selector_dropdown}") from e
+
+        except Exception as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Error Inesperado): Ocurrió un error desconocido al intentar obtener los valores del dropdown '{selector_dropdown}'.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_dropdown_fallo_inesperado", directorio)
+            raise AssertionError(f"\nError inesperado al extraer valores del dropdown: {selector_dropdown}") from e
+        
+    #58- Función que obtiene y imprime los valores y el texto de todas las opciones en un dropdown list.
+    #Opcionalmente, compara las opciones obtenidas con una lista de opciones esperadas.
+    def obtener_y_comparar_valores_dropdown(self, dropdown_locator, nombre_base, directorio, expected_options: List[Union[str, Dict[str, str]]] = None, compare_by_text: bool = True, compare_by_value: bool = False, timeout_ms: int = 5000) -> List[Dict[str, str]] | None:
+        """
+        Args:
+            dropdown_locator (Locator): El objeto Locator de Playwright para el elemento <select> del dropdown.
+            nombre_base (str): Nombre base para las capturas de pantalla.
+            directorio (str): Directorio donde se guardarán las capturas de pantalla.
+            expected_options (List[Union[str, Dict[str, str]]], optional):
+                Lista de opciones esperadas para la comparación. Puede ser:
+                - List[str]: Si solo quieres comparar por el texto visible de las opciones.
+                - List[Dict[str, str]]: Si quieres comparar por 'value' y 'text'.
+                  Ej: [{'value': 'usa', 'text': 'Estados Unidos'}].
+                Por defecto es None (no se realiza comparación).
+            compare_by_text (bool): Si es True, compara el texto visible de las opciones.
+                                    Usado si expected_options es List[str] o List[Dict].
+            compare_by_value (bool): Si es True, compara el atributo 'value' de las opciones.
+                                     Usado si expected_options es List[Dict].
+            timeout_ms (int): Tiempo máximo de espera en milisegundos.
+
+        Returns:
+            List[Dict[str, str]] | None: Una lista de diccionarios con las opciones reales.
+            Retorna None si ocurre un error o no se encuentran opciones.
+            La función generará una AssertionError si la comparación falla.
+        """
+        print(f"\n--- Extrayendo y comparando valores del dropdown '{dropdown_locator}' ---")
+        valores_opciones_reales: List[Dict[str, str]] = []
+
+        try:
+            # 1. Asegurar que el dropdown es visible y habilitado
+            dropdown_locator.highlight()
+            self.tomar_captura(f"{nombre_base}_dropdown_antes_extraccion_y_comparacion", directorio)
+
+            print(f"\n⏳ Esperando que el dropdown '{dropdown_locator}' sea visible y habilitado...")
+            expect(dropdown_locator).to_be_visible(timeout=timeout_ms)
+            expect(dropdown_locator).to_be_enabled(timeout=timeout_ms)
+            print(f"\n✅ Dropdown '{dropdown_locator}' es visible y habilitado.")
+
+            # 2. Obtener todas las opciones dentro del dropdown
+            option_locators = dropdown_locator.locator("option").all()
+
+            if not option_locators:
+                print(f"\n⚠️ No se encontraron opciones dentro del dropdown '{dropdown_locator}'.")
+                self.tomar_captura(f"{nombre_base}_dropdown_sin_opciones", directorio)
+                # Si se esperaban opciones y no hay ninguna, esto es un fallo
+                if expected_options:
+                    raise AssertionError(f"FALLO: No se encontraron opciones en el dropdown '{dropdown_locator}', pero se esperaban {len(expected_options)}.")
+                return None
+
+            print(f"Encontradas {len(option_locators)} opciones reales para '{dropdown_locator}':")
+
+            # 3. Iterar sobre cada opción y extraer su 'value' y 'text_content'
+            for i, option_locator in enumerate(option_locators):
+                value = option_locator.get_attribute("value")
+                text = option_locator.text_content()
+
+                clean_value = value.strip() if value else ""
+                clean_text = text.strip() if text else ""
+
+                valores_opciones_reales.append({'value': clean_value, 'text': clean_text})
+                print(f"  Opción Real {i+1}: Value='{clean_value}', Text='{clean_text}'")
+
+            print(f"\n✅ Valores obtenidos exitosamente del dropdown '{dropdown_locator}'.")
+            self.tomar_captura(f"{nombre_base}_dropdown_valores_extraidos", directorio)
+
+            # 4. Comparar con las opciones esperadas (si se proporcionan)
+            if expected_options is not None:
+                print("\n--- Realizando comparación de opciones ---")
+                try:
+                    expected_set = set()
+                    real_set = set()
+
+                    # Preparar los conjuntos para la comparación
+                    for opt in expected_options:
+                        if isinstance(opt, str):
+                            if compare_by_text:
+                                expected_set.add(opt.strip().lower()) # Normalizar para comparación
+                        elif isinstance(opt, dict):
+                            if compare_by_text and 'text' in opt:
+                                expected_set.add(opt['text'].strip().lower())
+                            if compare_by_value and 'value' in opt:
+                                expected_set.add(opt['value'].strip().lower())
+                        else:
+                            print(f"⚠️ Advertencia: Formato de opción esperada no reconocido: {opt}. Ignorando.")
+
+                    for opt_real in valores_opciones_reales:
+                        if compare_by_text:
+                            real_set.add(opt_real['text'].strip().lower())
+                        if compare_by_value:
+                            real_set.add(opt_real['value'].strip().lower())
+
+                    # Comprobar si los conjuntos son idénticos
+                    if expected_set == real_set:
+                        print("\n✅ ÉXITO: Las opciones del dropdown coinciden con las opciones esperadas.")
+                        self.tomar_captura(f"{nombre_base}_dropdown_comparacion_exitosa", directorio)
+                    else:
+                        missing_in_real = list(expected_set - real_set)
+                        missing_in_expected = list(real_set - expected_set)
+                        error_msg = f"❌ FALLO: Las opciones del dropdown NO coinciden con las esperadas.\n"
+                        if missing_in_real:
+                            error_msg += f"  - Opciones esperadas no encontradas en el dropdown: {missing_in_real}\n"
+                        if missing_in_expected:
+                            error_msg += f"  - Opciones encontradas en el dropdown que no estaban esperadas: {missing_in_expected}\n"
+                        print(error_msg)
+                        self.tomar_captura(f"{nombre_base}_dropdown_comparacion_fallida", directorio)
+                        raise AssertionError(f"Comparación de opciones del dropdown fallida para '{dropdown_locator}'. {error_msg.strip()}")
+
+                except Exception as e:
+                    print(f"❌ FALLO: Ocurrió un error durante la comparación de opciones: {e}")
+                    self.tomar_captura(f"{nombre_base}_dropdown_error_comparacion", directorio)
+                    raise AssertionError(f"Error al comparar opciones del dropdown '{dropdown_locator}': {e}") from e
+
+            return valores_opciones_reales
+
+        except TimeoutError as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Timeout): El dropdown '{dropdown_locator}' " # Usar dropdown_locator directamente
+                f"no se volvió visible/habilitado o sus opciones no cargaron a tiempo.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_dropdown_fallo_timeout", directorio)
+            raise AssertionError(f"\nDropdown no disponible: {dropdown_locator}") from e
+
+        except Error as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Error de Playwright): Ocurrió un error de Playwright al intentar obtener los valores del dropdown '{dropdown_locator}'.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_dropdown_fallo_playwright_error", directorio)
+            raise AssertionError(f"\nError de Playwright al extraer valores del dropdown: {dropdown_locator}") from e
+
+        except Exception as e:
+            mensaje_error = (
+                f"\n❌ FALLO (Error Inesperado): Ocurrió un error desconocido al intentar obtener los valores del dropdown '{dropdown_locator}'.\n"
+                f"Detalles: {e}"
+            )
+            print(mensaje_error)
+            self.tomar_captura(f"{nombre_base}_dropdown_fallo_inesperado", directorio)
+            raise AssertionError(f"\nError inesperado al extraer valores del dropdown: {dropdown_locator}") from e
