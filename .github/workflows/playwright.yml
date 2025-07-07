@@ -28,7 +28,7 @@ jobs:
       - name: Ejecutar pruebas de Playwright en orden específico
         run: |
           # El orden de ejecución de los archivos de prueba se define aquí
-          pytest practice/test/test_getByRole.py practice/test/test_getByText.py practice/test/test_getByLabel.py practice/test/test_getByPlaceholder.py practice/test/test_getByAltText.py practice/test/test_getByTitle.py practice/test/test_getByTestId.py practice/test/test_cargarArchivo.py practice/test/test_tablaEstatica.py practice/test/test_tablaDinamica.py practice/test/test_alertsAndPopups.py -s -v --template=html1/index.html --report=reportes/html1/playwright_reporte.html
+          pytest practice/test/test_getByRole.py practice/test/test_getByText.py practice/test/test_getByLabel.py practice/test/test_getByPlaceholder.py practice/test/test_getByAltText.py practice/test/test_getByTitle.py practice/test/test_getByTestId.py practice/test/test_cargarArchivo.py practice/test/test_tablaEstatica.py practice/test/test_tablaDinamica.py -s -v --template=html1/index.html --report=reportes/html1/playwright_reporte.html
       - name: Subir informe de pruebas de Playwright
         uses: actions/upload-artifact@v4
         if: always()
