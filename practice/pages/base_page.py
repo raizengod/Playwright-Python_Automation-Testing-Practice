@@ -5,7 +5,7 @@ import random
 from playwright.sync_api import Page, expect, Error , TimeoutError, sync_playwright, Response, Dialog 
 from datetime import datetime
 import os
-from typing import Union, List, Dict
+from typing import List, Dict, Union, Callable # Asegúrate de que Dict esté aquí
 
 class Funciones_Globales:
     
