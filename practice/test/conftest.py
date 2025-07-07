@@ -39,11 +39,11 @@ def set_up(playwright: Playwright, request) -> Generator[Page, None, None]:
 
     try:
         if browser_type == "chromium":
-            browser_instance = playwright.chromium.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.chromium.launch(headless=True, slow_mo=500)
         elif browser_type == "firefox":
-            browser_instance = playwright.firefox.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.firefox.launch(headless=True, slow_mo=500)
         elif browser_type == "webkit":
-            browser_instance = playwright.webkit.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.webkit.launch(headless=True, slow_mo=500)
         else:
             raise ValueError(f"\nEl tipo de navegador '{browser_type}' no es compatible.")
 
@@ -145,11 +145,11 @@ def set_up_ir_a(playwright: Playwright, request) -> Generator[Page, None, None]:
         # from practice.locator.locator_barraMenu import MenuLocatorsPage # Ya están arriba
 
         if browser_type == "chromium":
-            browser_instance = playwright.chromium.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.chromium.launch(headless=True, slow_mo=500)
         elif browser_type == "firefox":
-            browser_instance = playwright.firefox.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.firefox.launch(headless=True, slow_mo=500)
         elif browser_type == "webkit":
-            browser_instance = playwright.webkit.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.webkit.launch(headless=True, slow_mo=500)
         else:
             raise ValueError(f"\nEl tipo de navegador '{browser_type}' no es compatible.")
 
@@ -244,11 +244,11 @@ def set_up_byText(playwright: Playwright, request) -> Generator[Page, None, None
     try:
         # --- Lanza el navegador según el tipo especificado ---
         if browser_type == "chromium":
-            browser_instance = playwright.chromium.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.chromium.launch(headless=True, slow_mo=500)
         elif browser_type == "firefox":
-            browser_instance = playwright.firefox.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.firefox.launch(headless=True, slow_mo=500)
         elif browser_type == "webkit":
-            browser_instance = playwright.webkit.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.webkit.launch(headless=True, slow_mo=500)
         else:
             raise ValueError(f"\nEl tipo de navegador '{browser_type}' no es compatible.")
 
@@ -345,11 +345,11 @@ def set_up_byLabel(playwright: Playwright, request) -> Generator[Page, None, Non
     try:
         # --- Lanza el navegador según el tipo especificado ---
         if browser_type == "chromium":
-            browser_instance = playwright.chromium.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.chromium.launch(headless=True, slow_mo=500)
         elif browser_type == "firefox":
-            browser_instance = playwright.firefox.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.firefox.launch(headless=True, slow_mo=500)
         elif browser_type == "webkit":
-            browser_instance = playwright.webkit.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.webkit.launch(headless=True, slow_mo=500)
         else:
             raise ValueError(f"\nEl tipo de navegador '{browser_type}' no es compatible.")
 
@@ -446,11 +446,11 @@ def set_up_byPlaceholder(playwright: Playwright, request) -> Generator[Page, Non
     try:
         # --- Lanza el navegador según el tipo especificado ---
         if browser_type == "chromium":
-            browser_instance = playwright.chromium.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.chromium.launch(headless=True, slow_mo=500)
         elif browser_type == "firefox":
-            browser_instance = playwright.firefox.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.firefox.launch(headless=True, slow_mo=500)
         elif browser_type == "webkit":
-            browser_instance = playwright.webkit.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.webkit.launch(headless=True, slow_mo=500)
         else:
             raise ValueError(f"\nEl tipo de navegador '{browser_type}' no es compatible.")
 
@@ -547,11 +547,11 @@ def set_up_byAtlText(playwright: Playwright, request) -> Generator[Page, None, N
     try:
         # --- Lanza el navegador según el tipo especificado ---
         if browser_type == "chromium":
-            browser_instance = playwright.chromium.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.chromium.launch(headless=True, slow_mo=500)
         elif browser_type == "firefox":
-            browser_instance = playwright.firefox.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.firefox.launch(headless=True, slow_mo=500)
         elif browser_type == "webkit":
-            browser_instance = playwright.webkit.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.webkit.launch(headless=True, slow_mo=500)
         else:
             raise ValueError(f"\nEl tipo de navegador '{browser_type}' no es compatible.")
 
@@ -648,11 +648,11 @@ def set_up_byAltText(playwright: Playwright, request) -> Generator[Page, None, N
     try:
         # --- Lanza el navegador según el tipo especificado ---
         if browser_type == "chromium":
-            browser_instance = playwright.chromium.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.chromium.launch(headless=True, slow_mo=500)
         elif browser_type == "firefox":
-            browser_instance = playwright.firefox.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.firefox.launch(headless=True, slow_mo=500)
         elif browser_type == "webkit":
-            browser_instance = playwright.webkit.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.webkit.launch(headless=True, slow_mo=500)
         else:
             raise ValueError(f"\nEl tipo de navegador '{browser_type}' no es compatible.")
 
@@ -749,11 +749,11 @@ def set_up_byTitle(playwright: Playwright, request) -> Generator[Page, None, Non
     try:
         # --- Lanza el navegador según el tipo especificado ---
         if browser_type == "chromium":
-            browser_instance = playwright.chromium.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.chromium.launch(headless=True, slow_mo=500)
         elif browser_type == "firefox":
-            browser_instance = playwright.firefox.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.firefox.launch(headless=True, slow_mo=500)
         elif browser_type == "webkit":
-            browser_instance = playwright.webkit.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.webkit.launch(headless=True, slow_mo=500)
         else:
             raise ValueError(f"\nEl tipo de navegador '{browser_type}' no es compatible.")
 
@@ -850,11 +850,11 @@ def set_up_byTestId(playwright: Playwright, request) -> Generator[Page, None, No
     try:
         # --- Lanza el navegador según el tipo especificado ---
         if browser_type == "chromium":
-            browser_instance = playwright.chromium.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.chromium.launch(headless=True, slow_mo=500)
         elif browser_type == "firefox":
-            browser_instance = playwright.firefox.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.firefox.launch(headless=True, slow_mo=500)
         elif browser_type == "webkit":
-            browser_instance = playwright.webkit.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.webkit.launch(headless=True, slow_mo=500)
         else:
             raise ValueError(f"\nEl tipo de navegador '{browser_type}' no es compatible.")
 
@@ -951,11 +951,11 @@ def set_up_cargarArchivo(playwright: Playwright, request) -> Generator[Page, Non
     try:
         # --- Lanza el navegador según el tipo especificado ---
         if browser_type == "chromium":
-            browser_instance = playwright.chromium.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.chromium.launch(headless=True, slow_mo=500)
         elif browser_type == "firefox":
-            browser_instance = playwright.firefox.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.firefox.launch(headless=True, slow_mo=500)
         elif browser_type == "webkit":
-            browser_instance = playwright.webkit.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.webkit.launch(headless=True, slow_mo=500)
         else:
             raise ValueError(f"\nEl tipo de navegador '{browser_type}' no es compatible.")
 
@@ -1052,11 +1052,11 @@ def set_up_manejodDeTabla(playwright: Playwright, request) -> Generator[Page, No
     try:
         # --- Lanza el navegador según el tipo especificado ---
         if browser_type == "chromium":
-            browser_instance = playwright.chromium.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.chromium.launch(headless=True, slow_mo=500)
         elif browser_type == "firefox":
-            browser_instance = playwright.firefox.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.firefox.launch(headless=True, slow_mo=500)
         elif browser_type == "webkit":
-            browser_instance = playwright.webkit.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.webkit.launch(headless=True, slow_mo=500)
         else:
             raise ValueError(f"\nEl tipo de navegador '{browser_type}' no es compatible.")
 
@@ -1153,11 +1153,11 @@ def set_up_checkBoxLista(playwright: Playwright, request) -> Generator[Page, Non
     try:
         # --- Lanza el navegador según el tipo especificado ---
         if browser_type == "chromium":
-            browser_instance = playwright.chromium.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.chromium.launch(headless=True, slow_mo=500)
         elif browser_type == "firefox":
-            browser_instance = playwright.firefox.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.firefox.launch(headless=True, slow_mo=500)
         elif browser_type == "webkit":
-            browser_instance = playwright.webkit.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.webkit.launch(headless=True, slow_mo=500)
         else:
             raise ValueError(f"\nEl tipo de navegador '{browser_type}' no es compatible.")
 
@@ -1259,11 +1259,11 @@ def set_up_AlertsAndPopups(playwright: Playwright, request) -> Generator[Page, N
     try:
         # --- Lanza el navegador según el tipo especificado ---
         if browser_type == "chromium":
-            browser_instance = playwright.chromium.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.chromium.launch(headless=True, slow_mo=500)
         elif browser_type == "firefox":
-            browser_instance = playwright.firefox.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.firefox.launch(headless=True, slow_mo=500)
         elif browser_type == "webkit":
-            browser_instance = playwright.webkit.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.webkit.launch(headless=True, slow_mo=500)
         else:
             raise ValueError(f"\nEl tipo de navegador '{browser_type}' no es compatible.")
 
@@ -1366,11 +1366,11 @@ def set_up_mouseAction(playwright: Playwright, request) -> Generator[Page, None,
     try:
         # --- Lanza el navegador según el tipo especificado ---
         if browser_type == "chromium":
-            browser_instance = playwright.chromium.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.chromium.launch(headless=True, slow_mo=500)
         elif browser_type == "firefox":
-            browser_instance = playwright.firefox.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.firefox.launch(headless=True, slow_mo=500)
         elif browser_type == "webkit":
-            browser_instance = playwright.webkit.launch(headless=False, slow_mo=500)
+            browser_instance = playwright.webkit.launch(headless=True, slow_mo=500)
         else:
             raise ValueError(f"\nEl tipo de navegador '{browser_type}' no es compatible.")
 
