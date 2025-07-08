@@ -29,11 +29,11 @@ jobs:
         run: playwright install --with-deps
       - name: Ejecutar pruebas de Playwright
         run: |
-          # Asegúrate de que pytest-html esté instalado (pip install pytest-html)
+          # Asegúrate de que pytest-reporter-html1 esté incluido en requirements.txt (pip install pytest-reporter-html1)
           # Aquí estoy simplificando el comando para que pytest genere el reporte HTML directamente
           # Si necesitas el orden específico y el template, ajusta el comando según tu necesidad.
           # Asegúrate de que 'reportes/html1/' exista o pytest lo creará.
-          pytest practice/test/test_getByRole.py practice/test/test_getByText.py practice/test/test_getByLabel.py practice/test/test_getByPlaceholder.py practice/test/test_getByAltText.py practice/test/test_getByTitle.py practice/test/test_getByTestId.py practice/test/test_cargarArchivo.py practice/test/test_tablaEstatica.py practice/test/test_tablaDinamica.py --html=reportes/html1/playwright_reporte.html --self-contained-html -s -v
+          pytest practice/test/ -s -v --template=html1/index.html --report=reportes/html1/playwright_reporte.html
         
       - name: Subir informe de pruebas de Playwright (para debugging o descarga)
         uses: actions/upload-artifact@v4
