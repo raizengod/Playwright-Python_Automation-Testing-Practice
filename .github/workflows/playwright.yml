@@ -20,6 +20,10 @@ jobs:
       contents: read # Permiso para leer el código del repositorio
       pages: write   # Permiso para escribir en GitHub Pages
       id-token: write # ¡Este es el permiso crucial para OIDC!
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }} # Esto es opcional, pero útil para el resumen
+
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
