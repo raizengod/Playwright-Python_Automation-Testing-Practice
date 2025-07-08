@@ -15,6 +15,11 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    # ¡Añade esta sección de permisos aquí!
+    permissions:
+      contents: read # Permiso para leer el código del repositorio
+      pages: write   # Permiso para escribir en GitHub Pages
+      id-token: write # ¡Este es el permiso crucial para OIDC!
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -34,12 +39,20 @@ jobs:
           # Asegúrate de que 'reportes/html1/' exista o pytest lo creará.
           pytest practice/test/test_getByRole.py practice/test/test_getByText.py practice/test/test_getByLabel.py practice/test/test_getByPlaceholder.py practice/test/test_getByAltText.py practice/test/test_getByTitle.py practice/test/test_getByTestId.py practice/test/test_cargarArchivo.py practice/test/test_tablaEstatica.py practice/test/test_tablaDinamica.py --html=reportes/html1/playwright_reporte.html --self-contained-html -s -v
 
+      - name: Renombrar reporte HTML a index.html
+        run: |
+          # Asegura que el directorio exista (aunque pytest ya lo crearía)
+          mkdir -p reportes/html1/
+          # Mueve y renombra el archivo
+          mv reportes/html1/playwright_reporte.html reportes/html1/index.html
+        if: always()
+        
       - name: Subir informe de pruebas de Playwright (para debugging o descarga)
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-raw-report
-          path: reportes/html1/playwright_reporte.html
+          name: playwright-raw-report # El nombre del artefacto original, por si alguien quiere el nombre original
+          path: reportes/html1/index.html # Ahora subimos el index.html renombrado
           retention-days: 30
 
       # Paso crucial para GitHub Pages
