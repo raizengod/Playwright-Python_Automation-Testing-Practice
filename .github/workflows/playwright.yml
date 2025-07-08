@@ -47,7 +47,7 @@ jobs:
         uses: actions/configure-pages@v5
       
       - name: Subir Artifact para Pages
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v3
         with:
           # Path to your report directory. GitHub Pages expects an 'index.html' at the root.
           # Make sure your pytest command names the report index.html if possible, or move it.
