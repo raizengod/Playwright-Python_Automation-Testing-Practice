@@ -9,7 +9,8 @@ on:
     branches:
       - main
       - master
-
+  workflow_dispatch: # Permite ejecutar el workflow manualmente
+    
 jobs:
   test:
     timeout-minutes: 60
@@ -25,14 +26,33 @@ jobs:
           pip install -r requirements.txt # Asegúrate de que pytest-playwright esté en requirements.txt
       - name: Instalar navegadores de Playwright
         run: playwright install --with-deps
-      - name: Ejecutar pruebas de Playwright en orden específico
+      - name: Ejecutar pruebas de Playwright
         run: |
-          # El orden de ejecución de los archivos de prueba se define aquí
-          pytest practice/test/test_getByRole.py practice/test/test_getByText.py practice/test/test_getByLabel.py practice/test/test_getByPlaceholder.py practice/test/test_getByAltText.py practice/test/test_getByTitle.py practice/test/test_getByTestId.py practice/test/test_cargarArchivo.py practice/test/test_tablaEstatica.py practice/test/test_tablaDinamica.py -s -v --template=html1/index.html --report=reportes/html1/playwright_reporte.html
-      - name: Subir informe de pruebas de Playwright
+          # Asegúrate de que pytest-html esté instalado (pip install pytest-html)
+          # Aquí estoy simplificando el comando para que pytest genere el reporte HTML directamente
+          # Si necesitas el orden específico y el template, ajusta el comando según tu necesidad.
+          # Asegúrate de que 'reportes/html1/' exista o pytest lo creará.
+          pytest practice/test/test_getByRole.py practice/test/test_getByText.py practice/test/test_getByLabel.py practice/test/test_getByPlaceholder.py practice/test/test_getByAltText.py practice/test/test_getByTitle.py practice/test/test_getByTestId.py practice/test/test_cargarArchivo.py practice/test/test_tablaEstatica.py practice/test/test_tablaDinamica.py --html=reportes/html1/playwright_reporte.html --self-contained-html -s -v
+
+      - name: Subir informe de pruebas de Playwright (para debugging o descarga)
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report
+          name: playwright-raw-report
           path: reportes/html1/playwright_reporte.html
           retention-days: 30
+
+      # Paso crucial para GitHub Pages
+      - name: Configurar Pages
+        uses: actions/configure-pages@v5
+      
+      - name: Subir Artifact para Pages
+        uses: actions/upload-pages-artifact@v4
+        with:
+          # Path to your report directory. GitHub Pages expects an 'index.html' at the root.
+          # Make sure your pytest command names the report index.html if possible, or move it.
+          path: reportes/html1/
+
+      - name: Desplegar en GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
